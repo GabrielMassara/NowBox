@@ -2,8 +2,6 @@
   <img src="docs/img/logo.svg" alt="NowBox" width="200" />
 </p>
 
-<h1 align="center">NowBox</h1>
-
 <p align="center">
   <a href="README.md"><b>Português</b></a> ·
   <a href="README.en.md">English</a>
