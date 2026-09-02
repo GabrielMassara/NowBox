@@ -5,21 +5,21 @@
 <h1 align="center">NowBox</h1>
 
 <p align="center">
-  <a href="README.md"><b>Português</b></a> ·
-  <a href="README.en.md">English</a>
+  <a href="README.md">Português</a> ·
+  <a href="README.en.md"><b>English</b></a>
 </p>
 
-## Sobre o projeto
+## About the project
 
-O **NowBox** é um sistema completo de gerenciamento para empresas de **self storage** (armazenamento self-service). A plataforma centraliza a operação do negócio, oferecendo:
+**NowBox** is a complete management system for **self storage** companies. The platform centralizes business operations, offering:
 
-- **Dashboard administrativo** para acompanhar unidades, clientes e ocupação dos boxes.
-- **Sistema de aluguel** de boxes, com agendamento de horários de acesso.
-- **Emissão automática de contratos digitais**, eliminando processos manuais de papelada.
+- An **administrative dashboard** to track units, customers, and box occupancy.
+- A **rental system** for storage boxes, with access time scheduling.
+- **Automatic issuance of digital contracts**, eliminating manual paperwork processes.
 
-O objetivo é simplificar a rotina de empresas do setor, reduzindo trabalho manual e dando visibilidade total da operação em um só lugar.
+The goal is to simplify the day-to-day routine of businesses in this industry, reducing manual work and providing full visibility of operations in one place.
 
-## Tecnologias
+## Technologies
 
 <p align="center">
   <img src="https://img.shields.io/badge/Java-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java" />
