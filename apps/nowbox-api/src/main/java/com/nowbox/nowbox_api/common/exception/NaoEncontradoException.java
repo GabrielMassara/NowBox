@@ -4,14 +4,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 @ResponseStatus(HttpStatus.NOT_FOUND)
-public class EstadoNaoEncontradoException extends RuntimeException {
+public class NaoEncontradoException extends RuntimeException {
 
-    public EstadoNaoEncontradoException(String mensagem) {
+    public NaoEncontradoException(String mensagem) {
         super(mensagem);
-    }
-
-    public EstadoNaoEncontradoException() {
-        super("Estado não encontrado.");
     }
 
 }
