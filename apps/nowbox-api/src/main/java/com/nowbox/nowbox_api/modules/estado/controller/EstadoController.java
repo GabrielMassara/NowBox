@@ -1,6 +1,6 @@
 package com.nowbox.nowbox_api.modules.estado.controller;
 
-import com.nowbox.nowbox_api.common.exception.EstadoNaoEncontradoException;
+import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
 import com.nowbox.nowbox_api.modules.estado.dto.EstadoResponseDTO;
 import com.nowbox.nowbox_api.modules.estado.service.EstadoService;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +27,7 @@ public class EstadoController {
     @GetMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
     public EstadoResponseDTO find(@PathVariable UUID id) {
-        return estadoService.find(id).orElseThrow(() -> new EstadoNaoEncontradoException());
+        return estadoService.find(id).orElseThrow(() -> new NaoEncontradoException("Estado não encontrado."));
     }
 
 }
