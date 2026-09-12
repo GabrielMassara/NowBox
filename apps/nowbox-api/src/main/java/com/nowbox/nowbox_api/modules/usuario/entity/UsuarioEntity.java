@@ -1,5 +1,6 @@
 package com.nowbox.nowbox_api.modules.usuario.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -32,6 +33,7 @@ public class UsuarioEntity {
     @Column(length = 1)
     private String sexo;
 
+    @JsonIgnore
     @Column(length = 60)
     private String senha;
 
