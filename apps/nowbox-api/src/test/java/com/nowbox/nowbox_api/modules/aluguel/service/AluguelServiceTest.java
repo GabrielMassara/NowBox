@@ -49,7 +49,7 @@ class AluguelServiceTest {
     private AluguelService aluguelService;
 
     @Test
-    @DisplayName("Should list one aluguel filtered by idBox and idCliente")
+    @DisplayName("Should list one aluguel filtered by idBox, idCliente and status")
     void listAllByFilterCase1() {
         // ids utilizados no filtro
         UUID idBox = UUID.randomUUID();
@@ -58,14 +58,14 @@ class AluguelServiceTest {
         ClienteEntity cliente = ClienteEntity.builder().id(idCliente).nome("Cliente").build();
 
         // inicializa o filtro
-        AluguelFilterDTO filtro = AluguelFilterDTO.builder().idBox(idBox).idCliente(idCliente).build();
+        AluguelFilterDTO filtro = AluguelFilterDTO.builder().idBox(idBox).idCliente(idCliente).status(true).build();
 
         // Mock para simular resposta do Repository
-        AluguelEntity entidade = AluguelEntity.builder().box(box).cliente(cliente).valor(BigDecimal.valueOf(150.00)).build();
+        AluguelEntity entidade = AluguelEntity.builder().box(box).cliente(cliente).valor(BigDecimal.valueOf(150.00)).status(true).build();
         Page<AluguelEntity> paginaMock = new PageImpl<>(List.of(entidade));
 
         // Quando chamar findAllByFilter ele retorna o mock paginaMock
-        when(aluguelRepository.findAllByFilter(idBox, idCliente, null)).thenReturn(paginaMock);
+        when(aluguelRepository.findAllByFilter(idBox, idCliente, true, null)).thenReturn(paginaMock);
 
         // chama a funcao listAllByFilter
         Page<AluguelResponseDTO> result = aluguelService.listAllByFilter(null, filtro);
@@ -73,9 +73,10 @@ class AluguelServiceTest {
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().getFirst().getBox()).isEqualTo(box);
         assertThat(result.getContent().getFirst().getCliente()).isEqualTo(cliente);
+        assertThat(result.getContent().getFirst().getStatus()).isTrue();
 
         // verifica se ao chamar a findAllByFilter ele passou os mesmos parametros
-        verify(aluguelRepository).findAllByFilter(idBox, idCliente, null);
+        verify(aluguelRepository).findAllByFilter(idBox, idCliente, true, null);
     }
 
     @Test
@@ -92,7 +93,7 @@ class AluguelServiceTest {
         Page<AluguelEntity> paginaMock = new PageImpl<>(List.of(entidade));
 
         // Quando chamar findAllByFilter ele retorna o mock paginaMock
-        when(aluguelRepository.findAllByFilter(idBox, null, null)).thenReturn(paginaMock);
+        when(aluguelRepository.findAllByFilter(idBox, null, null, null)).thenReturn(paginaMock);
 
         // chama a funcao listAllByFilter
         Page<AluguelResponseDTO> result = aluguelService.listAllByFilter(null, filtro);
@@ -101,7 +102,7 @@ class AluguelServiceTest {
         assertThat(result.getContent().getFirst().getBox()).isEqualTo(box);
 
         // verifica se ao chamar a findAllByFilter ele passou os mesmos parametros
-        verify(aluguelRepository).findAllByFilter(idBox, null, null);
+        verify(aluguelRepository).findAllByFilter(idBox, null, null, null);
     }
 
     @Test
@@ -115,7 +116,7 @@ class AluguelServiceTest {
         Page<AluguelEntity> paginaMock = new PageImpl<>(List.of(entidade1, entidade2));
 
         // Quando chamar findAllByFilter ele retorna o mock paginaMock
-        when(aluguelRepository.findAllByFilter(null, null, null)).thenReturn(paginaMock);
+        when(aluguelRepository.findAllByFilter(null, null, null, null)).thenReturn(paginaMock);
 
         // chama a funcao listAllByFilter passando filtro nulo
         Page<AluguelResponseDTO> result = aluguelService.listAllByFilter(null, null);
@@ -123,7 +124,7 @@ class AluguelServiceTest {
         assertThat(result.getContent()).hasSize(2);
 
         // verifica se ao chamar a findAllByFilter ele passou todos os parametros nulos
-        verify(aluguelRepository).findAllByFilter(null, null, null);
+        verify(aluguelRepository).findAllByFilter(null, null, null, null);
     }
 
     @Test
@@ -137,7 +138,7 @@ class AluguelServiceTest {
         Page<AluguelEntity> paginaMock = Page.empty();
 
         // Quando chamar findAllByFilter ele retorna o mock paginaMock
-        when(aluguelRepository.findAllByFilter(idBox, null, null)).thenReturn(paginaMock);
+        when(aluguelRepository.findAllByFilter(idBox, null, null, null)).thenReturn(paginaMock);
 
         // chama a funcao listAllByFilter
         Page<AluguelResponseDTO> result = aluguelService.listAllByFilter(null, filtro);
@@ -146,7 +147,7 @@ class AluguelServiceTest {
         assertThat(result.getContent()).isEmpty();
 
         // verifica se ao chamar a findAllByFilter ele passou os mesmos parametros
-        verify(aluguelRepository).findAllByFilter(idBox, null, null);
+        verify(aluguelRepository).findAllByFilter(idBox, null, null, null);
     }
 
     @Test
@@ -201,7 +202,7 @@ class AluguelServiceTest {
 
         // dados para criacao
         AluguelCreateDTO aluguel = AluguelCreateDTO.builder()
-                .idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(150.00)).observacao("Observação teste").build();
+                .idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(150.00)).observacao("Observação teste").status(true).build();
 
         // Mock para simular que o box e o cliente existem
         when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
@@ -211,7 +212,7 @@ class AluguelServiceTest {
         UUID id = UUID.randomUUID();
         AluguelEntity entidadeSalva = AluguelEntity.builder()
                 .id(id).box(box).cliente(cliente).valor(BigDecimal.valueOf(150.00))
-                .observacao("Observação teste").createdAt(LocalDateTime.now()).build();
+                .observacao("Observação teste").status(true).createdAt(LocalDateTime.now()).build();
         when(aluguelRepository.save(any(AluguelEntity.class))).thenReturn(entidadeSalva);
 
         // chama a funcao create
@@ -222,13 +223,14 @@ class AluguelServiceTest {
         assertThat(result.getCliente()).isEqualTo(cliente);
         assertThat(result.getValor()).isEqualTo(BigDecimal.valueOf(150.00));
         assertThat(result.getObservacao()).isEqualTo("Observação teste");
+        assertThat(result.getStatus()).isTrue();
 
         // verifica se buscou o box e o cliente antes de criar
         verify(boxRepository).findByIdAndDeletedAtIsNull(idBox);
         verify(clienteRepository).findByIdAndDeletedAtIsNull(idCliente);
 
         // verifica se ao chamar o save ele passou uma entidade com os dados corretos
-        verify(aluguelRepository).save(argThat(e -> e.getBox().equals(box) && e.getCliente().equals(cliente) && e.getValor().equals(BigDecimal.valueOf(150.00))));
+        verify(aluguelRepository).save(argThat(e -> e.getBox().equals(box) && e.getCliente().equals(cliente) && e.getValor().equals(BigDecimal.valueOf(150.00)) && e.getStatus()));
     }
 
     @Test
@@ -290,12 +292,12 @@ class AluguelServiceTest {
         UUID idCliente = UUID.randomUUID();
 
         // dados para atualizacao
-        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(200.00)).build();
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(200.00)).status(false).build();
 
         // Mock para simular que o aluguel existe
         BoxEntity boxAntigo = BoxEntity.builder().numero("100").build();
         ClienteEntity clienteAntigo = ClienteEntity.builder().nome("Cliente Old").build();
-        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).box(boxAntigo).cliente(clienteAntigo).valor(BigDecimal.valueOf(150.00)).createdAt(LocalDateTime.now()).build();
+        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).box(boxAntigo).cliente(clienteAntigo).valor(BigDecimal.valueOf(150.00)).status(true).createdAt(LocalDateTime.now()).build();
         when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
 
         // Mock para simular que o box e o cliente existem
@@ -305,7 +307,7 @@ class AluguelServiceTest {
         when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
 
         // Mock para simular resposta do save
-        AluguelEntity entidadeAtualizada = AluguelEntity.builder().id(id).box(box).cliente(cliente).valor(BigDecimal.valueOf(200.00)).build();
+        AluguelEntity entidadeAtualizada = AluguelEntity.builder().id(id).box(box).cliente(cliente).valor(BigDecimal.valueOf(200.00)).status(false).build();
         when(aluguelRepository.save(any(AluguelEntity.class))).thenReturn(entidadeAtualizada);
 
         // chama a funcao update
@@ -315,6 +317,7 @@ class AluguelServiceTest {
         assertThat(result.getBox()).isEqualTo(box);
         assertThat(result.getCliente()).isEqualTo(cliente);
         assertThat(result.getValor()).isEqualTo(BigDecimal.valueOf(200.00));
+        assertThat(result.getStatus()).isFalse();
 
         // verifica se buscou o aluguel, o box e o cliente antes de atualizar
         verify(aluguelRepository).findByIdAndDeletedAtIsNull(id);

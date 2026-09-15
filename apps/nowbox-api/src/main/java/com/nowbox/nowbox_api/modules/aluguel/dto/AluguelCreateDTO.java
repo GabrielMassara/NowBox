@@ -19,4 +19,6 @@ public class AluguelCreateDTO {
     private BigDecimal valor;
 
     private String observacao;
+
+    private Boolean status;
 }
