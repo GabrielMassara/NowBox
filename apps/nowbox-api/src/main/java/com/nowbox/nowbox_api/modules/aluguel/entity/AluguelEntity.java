@@ -40,6 +40,9 @@ public class AluguelEntity {
     @Column(columnDefinition = "TEXT")
     private String observacao;
 
+    @Column(name = "status")
+    private Boolean status;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

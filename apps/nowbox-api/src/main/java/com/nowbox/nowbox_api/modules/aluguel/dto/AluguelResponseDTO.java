@@ -25,6 +25,8 @@ public class AluguelResponseDTO {
 
     private String observacao;
 
+    private Boolean status;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime deletedAt;

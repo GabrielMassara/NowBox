@@ -37,7 +37,7 @@ class IAluguelRepositoryTest {
     void findAllByFilterCase1() {
         List<AluguelEntity> alugueis = this.createScenario();
 
-        Page<AluguelEntity> result = aluguelRepository.findAllByFilter(alugueis.get(0).getBox().getId(), null, null);
+        Page<AluguelEntity> result = aluguelRepository.findAllByFilter(alugueis.get(0).getBox().getId(), null, null, null);
 
         assertThat(result.getContent().getFirst().getId()).isEqualTo(alugueis.get(0).getId());
         assertThat(result.getContent()).hasSize(1);
@@ -50,9 +50,22 @@ class IAluguelRepositoryTest {
         List<AluguelEntity> alugueis = this.createScenario();
         AluguelEntity aluguelOutroCliente = alugueis.get(2);
 
-        Page<AluguelEntity> result = aluguelRepository.findAllByFilter(null, aluguelOutroCliente.getCliente().getId(), null);
+        Page<AluguelEntity> result = aluguelRepository.findAllByFilter(null, aluguelOutroCliente.getCliente().getId(), null, null);
 
         assertThat(result.getContent().getFirst().getId()).isEqualTo(aluguelOutroCliente.getId());
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getTotalElements()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Return aluguel with status filter")
+    void findAllByFilterCase9() {
+        List<AluguelEntity> alugueis = this.createScenario();
+        AluguelEntity aluguelInativo = alugueis.get(2);
+
+        Page<AluguelEntity> result = aluguelRepository.findAllByFilter(null, null, false, null);
+
+        assertThat(result.getContent().getFirst().getId()).isEqualTo(aluguelInativo.getId());
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getTotalElements()).isEqualTo(1);
     }
@@ -62,7 +75,7 @@ class IAluguelRepositoryTest {
     void findAllByFilterCase3() {
         this.createScenario();
 
-        Page<AluguelEntity> result = aluguelRepository.findAllByFilter(null, null, null);
+        Page<AluguelEntity> result = aluguelRepository.findAllByFilter(null, null, null, null);
 
         assertThat(result.getContent()).hasSize(3);
         assertThat(result.getTotalElements()).isEqualTo(3);
@@ -71,7 +84,7 @@ class IAluguelRepositoryTest {
     @Test
     @DisplayName("No elements created: Should not return elements of aluguel")
     void findAllByFilterCase4() {
-        Page<AluguelEntity> result = aluguelRepository.findAllByFilter(null, null, null);
+        Page<AluguelEntity> result = aluguelRepository.findAllByFilter(null, null, null, null);
 
         assertThat(result.getContent()).isEmpty();
     }
@@ -81,7 +94,7 @@ class IAluguelRepositoryTest {
     void findAllByFilterCase5() {
         this.createScenario();
 
-        Page<AluguelEntity> result = aluguelRepository.findAllByFilter(UUID.randomUUID(), UUID.randomUUID(), null);
+        Page<AluguelEntity> result = aluguelRepository.findAllByFilter(UUID.randomUUID(), UUID.randomUUID(), null, null);
 
         assertThat(result.getContent()).isEmpty();
     }
@@ -93,7 +106,7 @@ class IAluguelRepositoryTest {
         AluguelEntity aluguel1 = alugueis.get(0);
 
         Page<AluguelEntity> result = aluguelRepository.findAllByFilter(
-                aluguel1.getBox().getId(), aluguel1.getCliente().getId(), null);
+                aluguel1.getBox().getId(), aluguel1.getCliente().getId(), aluguel1.getStatus(), null);
 
         assertThat(result.getContent().getFirst().getId()).isEqualTo(aluguel1.getId());
         assertThat(result.getContent()).hasSize(1);
@@ -108,7 +121,7 @@ class IAluguelRepositoryTest {
         AluguelEntity aluguelOutroCliente = alugueis.get(2);
 
         Page<AluguelEntity> result = aluguelRepository.findAllByFilter(
-                aluguel1.getBox().getId(), aluguelOutroCliente.getCliente().getId(), null);
+                aluguel1.getBox().getId(), aluguelOutroCliente.getCliente().getId(), null, null);
 
         assertThat(result.getContent()).isEmpty();
     }
@@ -121,7 +134,7 @@ class IAluguelRepositoryTest {
         aluguel1.setDeletedAt(LocalDateTime.now());
         this.em.persist(aluguel1);
 
-        Page<AluguelEntity> result = aluguelRepository.findAllByFilter(aluguel1.getBox().getId(), null, null);
+        Page<AluguelEntity> result = aluguelRepository.findAllByFilter(aluguel1.getBox().getId(), null, null, null);
 
         assertThat(result.getContent()).isEmpty();
     }
@@ -186,9 +199,9 @@ class IAluguelRepositoryTest {
         this.em.persist(cliente2);
 
         // Cadastra tres alugueis, cada um com uma combinacao unica de box e cliente
-        AluguelEntity aluguel1 = AluguelEntity.builder().box(box1).cliente(cliente1).valor(BigDecimal.valueOf(150.00)).observacao("Aluguel 1").build();
-        AluguelEntity aluguel2 = AluguelEntity.builder().box(box2).cliente(cliente1).valor(BigDecimal.valueOf(180.00)).observacao("Aluguel 2").build();
-        AluguelEntity aluguel3 = AluguelEntity.builder().box(box3).cliente(cliente2).valor(BigDecimal.valueOf(200.00)).observacao("Aluguel 3").build();
+        AluguelEntity aluguel1 = AluguelEntity.builder().box(box1).cliente(cliente1).valor(BigDecimal.valueOf(150.00)).observacao("Aluguel 1").status(true).build();
+        AluguelEntity aluguel2 = AluguelEntity.builder().box(box2).cliente(cliente1).valor(BigDecimal.valueOf(180.00)).observacao("Aluguel 2").status(true).build();
+        AluguelEntity aluguel3 = AluguelEntity.builder().box(box3).cliente(cliente2).valor(BigDecimal.valueOf(200.00)).observacao("Aluguel 3").status(false).build();
         this.em.persist(aluguel1);
         this.em.persist(aluguel2);
         this.em.persist(aluguel3);

@@ -34,6 +34,7 @@ public class AluguelService {
         // Verificacao dos parametros passados para filtro
         UUID idBox = null;
         UUID idCliente = null;
+        Boolean status = null;
 
         if(filtro != null) {
             if(StringUtils.hasText(String.valueOf(filtro.getIdBox()))) {
@@ -42,9 +43,12 @@ public class AluguelService {
             if(StringUtils.hasText(String.valueOf(filtro.getIdCliente()))) {
                 idCliente = filtro.getIdCliente();
             }
+            if(filtro.getStatus() != null) {
+                status = filtro.getStatus();
+            }
         }
 
-        return aluguelRepository.findAllByFilter(idBox, idCliente, pageable).map(this::toResponseDTO);
+        return aluguelRepository.findAllByFilter(idBox, idCliente, status, pageable).map(this::toResponseDTO);
     }
 
     public AluguelResponseDTO find(Pageable page, UUID id) throws NaoEncontradoException {
@@ -79,6 +83,7 @@ public class AluguelService {
                 .cliente(cliente.get())
                 .valor(aluguel.getValor())
                 .observacao(aluguel.getObservacao())
+                .status(aluguel.getStatus())
                 .build());
 
         return toResponseDTO(created);
@@ -110,6 +115,7 @@ public class AluguelService {
                 .cliente(cliente.get())
                 .valor(aluguel.getValor())
                 .observacao(aluguel.getObservacao())
+                .status(aluguel.getStatus())
                 .createdAt(existente.get().getCreatedAt())
                 .build());
 
@@ -132,6 +138,7 @@ public class AluguelService {
                 .cliente(entidade.getCliente())
                 .valor(entidade.getValor())
                 .observacao(entidade.getObservacao())
+                .status(entidade.getStatus())
                 .createdAt(entidade.getCreatedAt())
                 .deletedAt(entidade.getDeletedAt())
                 .build();

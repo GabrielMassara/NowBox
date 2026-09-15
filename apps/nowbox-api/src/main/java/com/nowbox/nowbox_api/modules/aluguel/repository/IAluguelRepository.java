@@ -19,9 +19,11 @@ public interface IAluguelRepository extends JpaRepository<AluguelEntity, UUID> {
             WHERE a.deletedAt IS NULL
             AND (:idBox IS NULL OR a.box.id = :idBox)
             AND (:idCliente IS NULL OR a.cliente.id = :idCliente)
+            AND (:status IS NULL OR a.status = :status)
             """)
     Page<AluguelEntity> findAllByFilter(@Param("idBox") UUID idBox,
                                         @Param("idCliente") UUID idCliente,
+                                        @Param("status") Boolean status,
                                         Pageable pageable);
 
     Optional<AluguelEntity> findByIdAndDeletedAtIsNull(UUID id);

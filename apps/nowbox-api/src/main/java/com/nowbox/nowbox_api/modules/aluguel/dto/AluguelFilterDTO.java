@@ -15,4 +15,6 @@ public class AluguelFilterDTO {
 
     private UUID idCliente;
 
+    private Boolean status;
+
 }
