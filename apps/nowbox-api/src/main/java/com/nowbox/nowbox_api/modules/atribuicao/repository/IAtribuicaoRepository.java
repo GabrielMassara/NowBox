@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
@@ -25,5 +26,12 @@ public interface IAtribuicaoRepository extends JpaRepository<AtribuicaoEntity, U
                                            Pageable pageable);
 
     Optional<AtribuicaoEntity> findByIdAndDeletedAtIsNull(UUID id);
+
+    @Query("""
+            SELECT DISTINCT a.cargo.unidade.id FROM AtribuicaoEntity a
+            WHERE a.usuario.id = :idUsuario
+            AND a.deletedAt IS NULL
+            """)
+    Set<UUID> findUnidadesIdsByUsuario(@Param("idUsuario") UUID idUsuario);
 
 }

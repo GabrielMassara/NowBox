@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -22,31 +23,36 @@ public class ClienteController {
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
-    private Page<ClienteResponseDTO> listAll(Pageable pageable, @ModelAttribute ClienteFilterDTO filtro) {
+    @PreAuthorize("hasAuthority('MOD_CLIENTE_OPE_CONSULTAR')")
+    public Page<ClienteResponseDTO> listAll(Pageable pageable, @ModelAttribute ClienteFilterDTO filtro) {
         return clienteService.listAllByFilter(pageable, filtro);
     }
 
     @GetMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
-    private ClienteResponseDTO listAll(Pageable pageable, @PathVariable UUID id) {
+    @PreAuthorize("hasAuthority('MOD_CLIENTE_OPE_CONSULTAR')")
+    public ClienteResponseDTO listAll(Pageable pageable, @PathVariable UUID id) {
         return clienteService.find(pageable, id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    private ClienteResponseDTO create(@RequestBody ClienteCreateDTO cliente) throws NaoEncontradoException {
+    @PreAuthorize("hasAuthority('MOD_CLIENTE_OPE_CADASTRAR')")
+    public ClienteResponseDTO create(@RequestBody ClienteCreateDTO cliente) throws NaoEncontradoException {
         return clienteService.create(cliente);
     }
 
     @PutMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
-    private ClienteResponseDTO update(@RequestBody ClienteCreateDTO cliente, @PathVariable UUID id) {
+    @PreAuthorize("hasAuthority('MOD_CLIENTE_OPE_ATUALIZAR')")
+    public ClienteResponseDTO update(@RequestBody ClienteCreateDTO cliente, @PathVariable UUID id) {
         return clienteService.update(cliente, id);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    private void delete(@PathVariable UUID id) {
+    @PreAuthorize("hasAuthority('MOD_CLIENTE_OPE_EXCLUIR')")
+    public void delete(@PathVariable UUID id) {
         clienteService.delete(id);
     }
 

@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -22,31 +23,36 @@ public class BoxController {
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
-    private Page<BoxResponseDTO> listAll(Pageable pageable, @ModelAttribute BoxFilterDTO filtro) {
+    @PreAuthorize("hasAuthority('MOD_BOX_OPE_CONSULTAR') and @acessoUnidadeService.temAcesso(#filtro.idUnidade)")
+    public Page<BoxResponseDTO> listAll(Pageable pageable, @ModelAttribute BoxFilterDTO filtro) {
         return boxService.listAllByFilter(pageable, filtro);
     }
 
     @GetMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
-    private BoxResponseDTO listAll(Pageable pageable, @PathVariable UUID id) {
+    @PreAuthorize("hasAuthority('MOD_BOX_OPE_CONSULTAR') and @acessoUnidadeService.temAcessoBox(#id)")
+    public BoxResponseDTO listAll(Pageable pageable, @PathVariable UUID id) {
         return boxService.find(pageable, id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    private BoxResponseDTO create(@RequestBody BoxCreateDTO box) throws NaoEncontradoException {
+    @PreAuthorize("hasAuthority('MOD_BOX_OPE_CADASTRAR') and @acessoUnidadeService.temAcesso(#box.idUnidade)")
+    public BoxResponseDTO create(@RequestBody BoxCreateDTO box) throws NaoEncontradoException {
         return boxService.create(box);
     }
 
     @PutMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
-    private BoxResponseDTO update(@RequestBody BoxCreateDTO box, @PathVariable UUID id) {
+    @PreAuthorize("hasAuthority('MOD_BOX_OPE_ATUALIZAR') and @acessoUnidadeService.temAcessoBox(#id) and @acessoUnidadeService.temAcesso(#box.idUnidade)")
+    public BoxResponseDTO update(@RequestBody BoxCreateDTO box, @PathVariable UUID id) {
         return boxService.update(box, id);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    private void delete(@PathVariable UUID id) {
+    @PreAuthorize("hasAuthority('MOD_BOX_OPE_EXCLUIR') and @acessoUnidadeService.temAcessoBox(#id)")
+    public void delete(@PathVariable UUID id) {
         boxService.delete(id);
     }
 

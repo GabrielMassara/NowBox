@@ -10,6 +10,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -22,6 +23,7 @@ import java.util.UUID;
 public class UsuarioService {
 
     private final IUsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public Page<UsuarioResponseDTO> listAllByFilter(Pageable pageable, UsuarioFilterDTO filtro) {
 
@@ -62,7 +64,7 @@ public class UsuarioService {
                 .email(usuario.getEmail())
                 .cpf(usuario.getCpf())
                 .sexo(usuario.getSexo())
-                .senha(usuario.getSenha())
+                .senha(passwordEncoder.encode(usuario.getSenha()))
                 .build());
 
         return toResponseDTO(created);
@@ -82,7 +84,7 @@ public class UsuarioService {
                 .email(usuario.getEmail())
                 .cpf(usuario.getCpf())
                 .sexo(usuario.getSexo())
-                .senha(usuario.getSenha())
+                .senha(passwordEncoder.encode(usuario.getSenha()))
                 .createdAt(existente.get().getCreatedAt())
                 .build());
 

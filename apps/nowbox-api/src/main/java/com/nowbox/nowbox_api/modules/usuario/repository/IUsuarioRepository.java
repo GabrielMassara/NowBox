@@ -28,4 +28,6 @@ public interface IUsuarioRepository extends JpaRepository<UsuarioEntity, UUID> {
 
     Optional<UsuarioEntity> findByIdAndDeletedAtIsNull(UUID id);
 
+    Optional<UsuarioEntity> findByEmailAndDeletedAtIsNull(String email);
+
 }

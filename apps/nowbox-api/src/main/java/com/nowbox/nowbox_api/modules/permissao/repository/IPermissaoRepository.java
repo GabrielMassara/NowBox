@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
@@ -21,5 +22,14 @@ public interface IPermissaoRepository extends JpaRepository<PermissaoEntity, UUI
     Page<PermissaoEntity> findAllByFilter(@Param("idCargo") UUID idCargo,
                                            @Param("idOperacao") UUID idOperacao,
                                            Pageable pageable);
+
+    @Query("""
+            SELECT DISTINCT p.operacao.codigo FROM PermissaoEntity p
+            WHERE p.cargo.id IN (
+                SELECT a.cargo.id FROM AtribuicaoEntity a
+                WHERE a.usuario.id = :idUsuario AND a.deletedAt IS NULL
+            )
+            """)
+    Set<String> findCodigosByUsuario(@Param("idUsuario") UUID idUsuario);
 
 }

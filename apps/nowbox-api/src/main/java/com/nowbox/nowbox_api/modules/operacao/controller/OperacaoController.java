@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -22,31 +23,36 @@ public class OperacaoController {
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
-    private Page<OperacaoResponseDTO> listAll(Pageable pageable, @ModelAttribute OperacaoFilterDTO filtro) {
+    @PreAuthorize("hasAuthority('MOD_OPERACAO_OPE_CONSULTAR')")
+    public Page<OperacaoResponseDTO> listAll(Pageable pageable, @ModelAttribute OperacaoFilterDTO filtro) {
         return operacaoService.listAllByFilter(pageable, filtro);
     }
 
     @GetMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
-    private OperacaoResponseDTO listAll(Pageable pageable, @PathVariable UUID id) {
+    @PreAuthorize("hasAuthority('MOD_OPERACAO_OPE_CONSULTAR')")
+    public OperacaoResponseDTO listAll(Pageable pageable, @PathVariable UUID id) {
         return operacaoService.find(pageable, id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    private OperacaoResponseDTO create(@RequestBody OperacaoCreateDTO operacao) throws NaoEncontradoException {
+    @PreAuthorize("hasAuthority('MOD_OPERACAO_OPE_CADASTRAR')")
+    public OperacaoResponseDTO create(@RequestBody OperacaoCreateDTO operacao) throws NaoEncontradoException {
         return operacaoService.create(operacao);
     }
 
     @PutMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
-    private OperacaoResponseDTO update(@RequestBody OperacaoCreateDTO operacao, @PathVariable UUID id) {
+    @PreAuthorize("hasAuthority('MOD_OPERACAO_OPE_ATUALIZAR')")
+    public OperacaoResponseDTO update(@RequestBody OperacaoCreateDTO operacao, @PathVariable UUID id) {
         return operacaoService.update(operacao, id);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    private void delete(@PathVariable UUID id) {
+    @PreAuthorize("hasAuthority('MOD_OPERACAO_OPE_EXCLUIR')")
+    public void delete(@PathVariable UUID id) {
         operacaoService.delete(id);
     }
 

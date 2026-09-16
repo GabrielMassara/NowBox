@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -20,12 +21,14 @@ public class EstadoController {
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize("hasAuthority('MOD_ESTADO_OPE_CONSULTAR')")
     public PagedModel<EstadoResponseDTO> findAll(Pageable pageable) {
         return new PagedModel<>(estadoService.listAll(pageable));
     }
 
     @GetMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize("hasAuthority('MOD_ESTADO_OPE_CONSULTAR')")
     public EstadoResponseDTO find(@PathVariable UUID id) {
         return estadoService.find(id).orElseThrow(() -> new NaoEncontradoException("Estado não encontrado."));
     }

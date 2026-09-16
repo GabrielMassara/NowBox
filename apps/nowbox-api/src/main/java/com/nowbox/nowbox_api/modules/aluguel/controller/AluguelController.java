@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -22,31 +23,36 @@ public class AluguelController {
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
-    private Page<AluguelResponseDTO> listAll(Pageable pageable, @ModelAttribute AluguelFilterDTO filtro) {
+    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_CONSULTAR') and @acessoUnidadeService.temAcessoBox(#filtro.idBox)")
+    public Page<AluguelResponseDTO> listAll(Pageable pageable, @ModelAttribute AluguelFilterDTO filtro) {
         return aluguelService.listAllByFilter(pageable, filtro);
     }
 
     @GetMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
-    private AluguelResponseDTO listAll(Pageable pageable, @PathVariable UUID id) {
+    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_CONSULTAR') and @acessoUnidadeService.temAcessoAluguel(#id)")
+    public AluguelResponseDTO listAll(Pageable pageable, @PathVariable UUID id) {
         return aluguelService.find(pageable, id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    private AluguelResponseDTO create(@RequestBody AluguelCreateDTO aluguel) throws NaoEncontradoException {
+    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_CADASTRAR') and @acessoUnidadeService.temAcessoBox(#aluguel.idBox)")
+    public AluguelResponseDTO create(@RequestBody AluguelCreateDTO aluguel) throws NaoEncontradoException {
         return aluguelService.create(aluguel);
     }
 
     @PutMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
-    private AluguelResponseDTO update(@RequestBody AluguelCreateDTO aluguel, @PathVariable UUID id) {
+    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_ATUALIZAR') and @acessoUnidadeService.temAcessoAluguel(#id) and @acessoUnidadeService.temAcessoBox(#aluguel.idBox)")
+    public AluguelResponseDTO update(@RequestBody AluguelCreateDTO aluguel, @PathVariable UUID id) {
         return aluguelService.update(aluguel, id);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    private void delete(@PathVariable UUID id) {
+    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_EXCLUIR') and @acessoUnidadeService.temAcessoAluguel(#id)")
+    public void delete(@PathVariable UUID id) {
         aluguelService.delete(id);
     }
 
