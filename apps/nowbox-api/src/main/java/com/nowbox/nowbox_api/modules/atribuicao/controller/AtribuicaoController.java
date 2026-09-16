@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -22,31 +23,36 @@ public class AtribuicaoController {
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
-    private Page<AtribuicaoResponseDTO> listAll(Pageable pageable, @ModelAttribute AtribuicaoFilterDTO filtro) {
+    @PreAuthorize("hasAuthority('MOD_ATRIBUICAO_OPE_CONSULTAR')")
+    public Page<AtribuicaoResponseDTO> listAll(Pageable pageable, @ModelAttribute AtribuicaoFilterDTO filtro) {
         return atribuicaoService.listAllByFilter(pageable, filtro);
     }
 
     @GetMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
-    private AtribuicaoResponseDTO listAll(Pageable pageable, @PathVariable UUID id) {
+    @PreAuthorize("hasAuthority('MOD_ATRIBUICAO_OPE_CONSULTAR')")
+    public AtribuicaoResponseDTO listAll(Pageable pageable, @PathVariable UUID id) {
         return atribuicaoService.find(pageable, id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    private AtribuicaoResponseDTO create(@RequestBody AtribuicaoCreateDTO atribuicao) throws NaoEncontradoException {
+    @PreAuthorize("hasAuthority('MOD_ATRIBUICAO_OPE_CADASTRAR')")
+    public AtribuicaoResponseDTO create(@RequestBody AtribuicaoCreateDTO atribuicao) throws NaoEncontradoException {
         return atribuicaoService.create(atribuicao);
     }
 
     @PutMapping("/{id}")
     @ResponseStatus(HttpStatus.OK)
-    private AtribuicaoResponseDTO update(@RequestBody AtribuicaoCreateDTO atribuicao, @PathVariable UUID id) {
+    @PreAuthorize("hasAuthority('MOD_ATRIBUICAO_OPE_ATUALIZAR')")
+    public AtribuicaoResponseDTO update(@RequestBody AtribuicaoCreateDTO atribuicao, @PathVariable UUID id) {
         return atribuicaoService.update(atribuicao, id);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    private void delete(@PathVariable UUID id) {
+    @PreAuthorize("hasAuthority('MOD_ATRIBUICAO_OPE_EXCLUIR')")
+    public void delete(@PathVariable UUID id) {
         atribuicaoService.delete(id);
     }
 
