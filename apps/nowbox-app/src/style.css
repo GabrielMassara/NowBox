@@ -1,0 +1,21 @@
+:root {
+  color-scheme: light dark;
+  font: 18px/145% system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+.screen {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.screen h1 {
+  font-size: 48px;
+  font-weight: 500;
+  margin: 0;
+}
