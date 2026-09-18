@@ -16,6 +16,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -145,6 +146,54 @@ class IAtribuicaoRepositoryTest {
         this.em.persist(atribuicao1);
 
         Optional<AtribuicaoEntity> result = atribuicaoRepository.findByIdAndDeletedAtIsNull(atribuicao1.getId());
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should return the ids of unidades the usuario has an active atribuicao for")
+    void findUnidadesIdsByUsuarioCase1() {
+        EstadoEntity estado = EstadoEntity.builder().nome("Estado").uf("XX").build();
+        this.em.persist(estado);
+
+        UnidadeEntity unidade1 = UnidadeEntity.builder()
+                .nome("Unidade 1").cnpj("11111111111111").endereco("Rua 1").numero("1")
+                .bairro("Bairro 1").cep("11111111").cidade("Cidade 1").estado(estado).build();
+        UnidadeEntity unidade2 = UnidadeEntity.builder()
+                .nome("Unidade 2").cnpj("22222222222222").endereco("Rua 2").numero("2")
+                .bairro("Bairro 2").cep("22222222").cidade("Cidade 2").estado(estado).build();
+        this.em.persist(unidade1);
+        this.em.persist(unidade2);
+
+        // cargo1 e cargo2 pertencem a unidades diferentes; cargo3 pertence a unidade2, mas a atribuicao sera deletada
+        CargoEntity cargo1 = CargoEntity.builder().nome("Cargo Test 1").unidade(unidade1).build();
+        CargoEntity cargo2 = CargoEntity.builder().nome("Cargo Test 2").unidade(unidade2).build();
+        CargoEntity cargo3 = CargoEntity.builder().nome("Cargo Test 3").unidade(unidade2).build();
+        this.em.persist(cargo1);
+        this.em.persist(cargo2);
+        this.em.persist(cargo3);
+
+        UsuarioEntity usuario = UsuarioEntity.builder()
+                .nome("Usuario Test").email("usuario@test.com").cpf("11111111111").sexo("M").senha("senha1").build();
+        this.em.persist(usuario);
+
+        AtribuicaoEntity atribuicao1 = AtribuicaoEntity.builder().usuario(usuario).cargo(cargo1).build();
+        AtribuicaoEntity atribuicao2 = AtribuicaoEntity.builder().usuario(usuario).cargo(cargo2).build();
+        AtribuicaoEntity atribuicao3 = AtribuicaoEntity.builder().usuario(usuario).cargo(cargo3).deletedAt(LocalDateTime.now()).build();
+        this.em.persist(atribuicao1);
+        this.em.persist(atribuicao2);
+        this.em.persist(atribuicao3);
+
+        Set<UUID> result = atribuicaoRepository.findUnidadesIdsByUsuario(usuario.getId());
+
+        // deve retornar as unidades 1 e 2 (via atribuicoes ativas), mas nao unidades vindas de atribuicoes deletadas
+        assertThat(result).containsExactlyInAnyOrder(unidade1.getId(), unidade2.getId());
+    }
+
+    @Test
+    @DisplayName("Should return empty set when usuario has no active atribuicao")
+    void findUnidadesIdsByUsuarioCase2() {
+        Set<UUID> result = atribuicaoRepository.findUnidadesIdsByUsuario(UUID.randomUUID());
 
         assertThat(result).isEmpty();
     }

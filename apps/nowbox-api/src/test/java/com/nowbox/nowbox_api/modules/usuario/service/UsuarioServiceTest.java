@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -33,6 +34,9 @@ class UsuarioServiceTest {
 
     @Mock
     private IUsuarioRepository usuarioRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private UsuarioService usuarioService;
@@ -176,6 +180,9 @@ class UsuarioServiceTest {
                 .senha("senha123")
                 .build();
 
+        // Mock para simular o hash da senha
+        when(passwordEncoder.encode("senha123")).thenReturn("senhaHasheada");
+
         // Mock para simular resposta do Repository
         UUID id = UUID.randomUUID();
         UsuarioEntity entidadeSalva = UsuarioEntity.builder()
@@ -184,7 +191,7 @@ class UsuarioServiceTest {
                 .email("usuario@test.com")
                 .cpf("12345678901")
                 .sexo("M")
-                .senha("senha123")
+                .senha("senhaHasheada")
                 .createdAt(LocalDateTime.now())
                 .build();
         when(usuarioRepository.save(any(UsuarioEntity.class))).thenReturn(entidadeSalva);
@@ -197,8 +204,8 @@ class UsuarioServiceTest {
         assertThat(result.getEmail()).isEqualTo("usuario@test.com");
         assertThat(result.getCpf()).isEqualTo("12345678901");
 
-        // verifica se ao chamar o save ele passou uma entidade com os dados corretos
-        verify(usuarioRepository).save(argThat(e -> e.getNome().equals("Usuario Test") && e.getEmail().equals("usuario@test.com") && e.getCpf().equals("12345678901") && e.getSenha().equals("senha123")));
+        // verifica se ao chamar o save ele passou uma entidade com os dados corretos e a senha hasheada
+        verify(usuarioRepository).save(argThat(e -> e.getNome().equals("Usuario Test") && e.getEmail().equals("usuario@test.com") && e.getCpf().equals("12345678901") && e.getSenha().equals("senhaHasheada")));
     }
 
     @Test

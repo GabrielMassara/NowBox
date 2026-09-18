@@ -1,5 +1,6 @@
 package com.nowbox.nowbox_api.modules.permissao.repository;
 
+import com.nowbox.nowbox_api.modules.atribuicao.entity.AtribuicaoEntity;
 import com.nowbox.nowbox_api.modules.cargo.entity.CargoEntity;
 import com.nowbox.nowbox_api.modules.estado.entity.EstadoEntity;
 import com.nowbox.nowbox_api.modules.modulo.entity.ModuloEntity;
@@ -7,6 +8,7 @@ import com.nowbox.nowbox_api.modules.operacao.entity.OperacaoEntity;
 import com.nowbox.nowbox_api.modules.permissao.entity.PermissaoEntity;
 import com.nowbox.nowbox_api.modules.sessao.entity.SessaoEntity;
 import com.nowbox.nowbox_api.modules.unidade.entity.UnidadeEntity;
+import com.nowbox.nowbox_api.modules.usuario.entity.UsuarioEntity;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,7 +17,9 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.data.domain.Page;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -109,6 +113,98 @@ class IPermissaoRepositoryTest {
                 permissao1.getCargo().getId(), permissaoOutraOperacao.getOperacao().getId(), null);
 
         assertThat(result.getContent()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should return the codigos of operacoes the usuario has permissao for through active atribuicoes")
+    void findCodigosByUsuarioCase1() {
+        EstadoEntity estado = EstadoEntity.builder().nome("Estado").uf("XX").build();
+        this.em.persist(estado);
+
+        UnidadeEntity unidade = UnidadeEntity.builder()
+                .nome("Unidade").cnpj("11111111111111").endereco("Rua 1").numero("1")
+                .bairro("Bairro 1").cep("11111111").cidade("Cidade 1").estado(estado).build();
+        this.em.persist(unidade);
+
+        CargoEntity cargoComAcesso = CargoEntity.builder().nome("Cargo Com Acesso").unidade(unidade).build();
+        CargoEntity cargoSemAcesso = CargoEntity.builder().nome("Cargo Sem Acesso").unidade(unidade).build();
+        this.em.persist(cargoComAcesso);
+        this.em.persist(cargoSemAcesso);
+
+        SessaoEntity sessao = SessaoEntity.builder().nome("Sessao").rota("/rotaSessao").build();
+        this.em.persist(sessao);
+
+        ModuloEntity modulo = ModuloEntity.builder().nome("Modulo").rota("/modulo").sessao(sessao).build();
+        this.em.persist(modulo);
+
+        OperacaoEntity operacao1 = OperacaoEntity.builder().nome("Operacao Test 1").codigo("OP1").modulo(modulo).build();
+        OperacaoEntity operacao2 = OperacaoEntity.builder().nome("Operacao Test 2").codigo("OP2").modulo(modulo).build();
+        this.em.persist(operacao1);
+        this.em.persist(operacao2);
+
+        // permissao1 esta ligada ao cargo que o usuario possui; permissao2 esta ligada a um cargo que o usuario nao possui
+        PermissaoEntity permissao1 = PermissaoEntity.builder().cargo(cargoComAcesso).operacao(operacao1).build();
+        PermissaoEntity permissao2 = PermissaoEntity.builder().cargo(cargoSemAcesso).operacao(operacao2).build();
+        this.em.persist(permissao1);
+        this.em.persist(permissao2);
+
+        UsuarioEntity usuario = UsuarioEntity.builder()
+                .nome("Usuario Test").email("usuario@test.com").cpf("11111111111").sexo("M").senha("senha1").build();
+        this.em.persist(usuario);
+
+        AtribuicaoEntity atribuicao = AtribuicaoEntity.builder().usuario(usuario).cargo(cargoComAcesso).build();
+        this.em.persist(atribuicao);
+
+        Set<String> result = permissaoRepository.findCodigosByUsuario(usuario.getId());
+
+        assertThat(result).containsExactly("OP1");
+    }
+
+    @Test
+    @DisplayName("Should not return codigos when the atribuicao is soft deleted")
+    void findCodigosByUsuarioCase2() {
+        EstadoEntity estado = EstadoEntity.builder().nome("Estado").uf("XX").build();
+        this.em.persist(estado);
+
+        UnidadeEntity unidade = UnidadeEntity.builder()
+                .nome("Unidade").cnpj("11111111111111").endereco("Rua 1").numero("1")
+                .bairro("Bairro 1").cep("11111111").cidade("Cidade 1").estado(estado).build();
+        this.em.persist(unidade);
+
+        CargoEntity cargo = CargoEntity.builder().nome("Cargo Test").unidade(unidade).build();
+        this.em.persist(cargo);
+
+        SessaoEntity sessao = SessaoEntity.builder().nome("Sessao").rota("/rotaSessao").build();
+        this.em.persist(sessao);
+
+        ModuloEntity modulo = ModuloEntity.builder().nome("Modulo").rota("/modulo").sessao(sessao).build();
+        this.em.persist(modulo);
+
+        OperacaoEntity operacao = OperacaoEntity.builder().nome("Operacao Test").codigo("OP1").modulo(modulo).build();
+        this.em.persist(operacao);
+
+        PermissaoEntity permissao = PermissaoEntity.builder().cargo(cargo).operacao(operacao).build();
+        this.em.persist(permissao);
+
+        UsuarioEntity usuario = UsuarioEntity.builder()
+                .nome("Usuario Test").email("usuario@test.com").cpf("11111111111").sexo("M").senha("senha1").build();
+        this.em.persist(usuario);
+
+        // atribuicao ja deletada: a permissao nao deve ser retornada para esse usuario
+        AtribuicaoEntity atribuicao = AtribuicaoEntity.builder().usuario(usuario).cargo(cargo).deletedAt(LocalDateTime.now()).build();
+        this.em.persist(atribuicao);
+
+        Set<String> result = permissaoRepository.findCodigosByUsuario(usuario.getId());
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should return empty set when usuario has no atribuicao")
+    void findCodigosByUsuarioCase3() {
+        Set<String> result = permissaoRepository.findCodigosByUsuario(UUID.randomUUID());
+
+        assertThat(result).isEmpty();
     }
 
     private List<PermissaoEntity> createScenario() {
