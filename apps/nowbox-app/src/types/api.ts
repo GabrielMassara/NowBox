@@ -1,0 +1,55 @@
+export interface LoginRequestDTO {
+  email: string
+  senha: string
+}
+
+export interface LoginResponseDTO {
+  token: string
+}
+
+export interface UsuarioResponseDTO {
+  id: string
+  nome: string
+  email: string
+  cpf: string
+  sexo: string
+}
+
+export interface EstadoEntity {
+  id: string
+  nome: string
+  uf: string
+}
+
+export interface UnidadeEntity {
+  id: string
+  nome: string
+  cnpj: string
+  endereco: string
+  numero: string
+  complemento?: string
+  bairro: string
+  cep: string
+  cidade: string
+  estado: EstadoEntity
+}
+
+export interface CargoEntity {
+  id: string
+  nome: string
+  unidade: UnidadeEntity
+}
+
+export interface AtribuicaoResponseDTO {
+  id: string
+  usuario: { id: string; nome: string; email: string }
+  cargo: CargoEntity
+}
+
+export interface PageResponse<T> {
+  totalPages: number
+  totalElements: number
+  size: number
+  content: T[]
+  number: number
+}
