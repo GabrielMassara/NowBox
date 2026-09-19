@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -23,5 +24,19 @@ public interface IModuloRepository extends JpaRepository<ModuloEntity, UUID> {
                                         @Param("nome") String nome,
                                         @Param("rota") String rota,
                                         Pageable pageable);
+
+    @Query("""
+            SELECT m FROM ModuloEntity m
+            JOIN FETCH m.sessao s
+            WHERE m.id IN (
+                SELECT p.operacao.modulo.id FROM PermissaoEntity p
+                WHERE p.cargo.id IN (
+                    SELECT a.cargo.id FROM AtribuicaoEntity a
+                    WHERE a.usuario.id = :idUsuario AND a.deletedAt IS NULL
+                )
+            )
+            ORDER BY s.nome, m.nome
+            """)
+    List<ModuloEntity> findAllByUsuario(@Param("idUsuario") UUID idUsuario);
 
 }
