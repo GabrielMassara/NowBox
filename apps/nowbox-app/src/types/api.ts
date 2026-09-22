@@ -78,6 +78,19 @@ export interface SessaoCreateDTO {
   rota: string
 }
 
+export interface ModuloResponseDTO {
+  id: string
+  sessao: SessaoResponseDTO
+  nome: string
+  rota: string
+}
+
+export interface ModuloCreateDTO {
+  idSessao: string
+  nome: string
+  rota: string
+}
+
 export interface PageMetadata {
   size: number
   number: number
