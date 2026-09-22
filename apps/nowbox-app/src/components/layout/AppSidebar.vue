@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
+import { computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../AppIcon.vue'
 import logo from '../../assets/logo.svg'
+import { menuStore } from '../../stores/menu'
 
 defineProps<{ recolhida?: boolean }>()
 defineEmits<{ alternar: [] }>()
@@ -17,38 +19,49 @@ interface NavGroup {
   items: NavItem[]
 }
 
-const route = useRoute()
+const iconePadrao = 'dashboard'
 
-const groups: NavGroup[] = [
+const iconesPorRota: Record<string, string> = {
+  '/modulos': 'layers',
+  '/operacoes-sistema': 'settings',
+  '/estados': 'map-pin',
+  '/sessoes': 'folder',
+  '/cargos': 'tag',
+  '/permissoes': 'shield',
+  '/atribuicoes': 'clipboard-check',
+  '/usuarios': 'user-circle',
+  '/unidades': 'building',
+  '/boxes': 'box',
+  '/alugueis': 'bag',
+  '/clientes': 'users',
+}
+
+const route = useRoute()
+const router = useRouter()
+
+const rotasRegistradas = new Set(router.getRoutes().map((r) => r.path))
+
+const groups = computed<NavGroup[]>(() => [
   {
     items: [{ label: 'Dashboard', icon: 'dashboard', to: '/' }],
   },
-  {
-    title: 'Gestão',
-    items: [
-      { label: 'Atribuições', icon: 'clipboard-check' },
-      { label: 'Clientes', icon: 'users' },
-      { label: 'Aluguéis', icon: 'bag' },
-    ],
-  },
-  {
-    title: 'Agências',
-    items: [
-      { label: 'Unidades', icon: 'building' },
-      { label: 'Boxes', icon: 'box' },
-    ],
-  },
-  {
-    title: 'Configuração',
-    items: [
-      { label: 'Cargos', icon: 'tag' },
-      { label: 'Permissões', icon: 'shield' },
-      { label: 'Usuários', icon: 'user-circle' },
-    ],
-  },
-]
+  ...menuStore.state.sessoes.map((sessao) => ({
+    title: sessao.nome,
+    items: sessao.modulos.map((modulo) => ({
+      label: modulo.nome,
+      icon: iconesPorRota[modulo.rota] ?? iconePadrao,
+      to: rotasRegistradas.has(modulo.rota) ? modulo.rota : undefined,
+    })),
+  })),
+])
 
-const estaAtivo = (item: NavItem) => item.to !== undefined && route.path === item.to
+const estaAtivo = (item: NavItem) => {
+  if (item.to === undefined) return false
+  if (item.to === '/') return route.path === '/'
+  return route.path === item.to || route.path.startsWith(`${item.to}/`)
+}
+
+onMounted(() => menuStore.carregar())
 </script>
 
 <template>
@@ -84,6 +97,8 @@ const estaAtivo = (item: NavItem) => item.to !== undefined && route.path === ite
           <span class="sidebar__label">{{ item.label }}</span>
         </component>
       </div>
+
+      <p v-if="menuStore.state.erro" class="sidebar__aviso">{{ menuStore.state.erro }}</p>
     </nav>
   </aside>
 </template>
@@ -195,6 +210,13 @@ const estaAtivo = (item: NavItem) => item.to !== undefined && route.path === ite
   color: var(--brand-500);
 }
 
+.sidebar__aviso {
+  margin-top: 22px;
+  padding: 0 12px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
 .sidebar__label {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -210,7 +232,8 @@ const estaAtivo = (item: NavItem) => item.to !== undefined && route.path === ite
 }
 
 .sidebar--recolhida .sidebar__logo,
-.sidebar--recolhida .sidebar__label {
+.sidebar--recolhida .sidebar__label,
+.sidebar--recolhida .sidebar__aviso {
   display: none;
 }
 
