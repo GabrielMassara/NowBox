@@ -124,6 +124,33 @@ defineProps<{ name: string; size?: number }>()
       <polyline points="9 6 15 12 9 18" />
     </template>
 
+    <template v-else-if="name === 'chevron-left'">
+      <polyline points="15 6 9 12 15 18" />
+    </template>
+
+    <template v-else-if="name === 'arrow-left'">
+      <line x1="19" y1="12" x2="5" y2="12" />
+      <polyline points="11 6 5 12 11 18" />
+    </template>
+
+    <template v-else-if="name === 'plus'">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </template>
+
+    <template v-else-if="name === 'pencil'">
+      <path d="M4 20l.9-4.2L15.6 5.1a1.5 1.5 0 0 1 2.1 0l1.2 1.2a1.5 1.5 0 0 1 0 2.1L8.2 19.1 4 20z" />
+      <line x1="14.3" y1="6.4" x2="17.6" y2="9.7" />
+    </template>
+
+    <template v-else-if="name === 'trash'">
+      <polyline points="4 7 20 7" />
+      <path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
+      <path d="M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7" />
+      <line x1="10" y1="11" x2="10" y2="17" />
+      <line x1="14" y1="11" x2="14" y2="17" />
+    </template>
+
     <template v-else-if="name === 'calendar'">
       <rect x="3" y="5" width="18" height="16" rx="2" />
       <line x1="8" y1="3" x2="8" y2="7" />

@@ -66,3 +66,26 @@ export interface MenuSessaoResponseDTO {
   rota: string
   modulos: MenuModuloResponseDTO[]
 }
+
+export interface SessaoResponseDTO {
+  id: string
+  nome: string
+  rota: string
+}
+
+export interface SessaoCreateDTO {
+  nome: string
+  rota: string
+}
+
+export interface PageMetadata {
+  size: number
+  number: number
+  totalElements: number
+  totalPages: number
+}
+
+export interface PagedResponse<T> {
+  content: T[]
+  page: PageMetadata
+}
