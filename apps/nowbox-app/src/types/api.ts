@@ -91,6 +91,19 @@ export interface ModuloCreateDTO {
   rota: string
 }
 
+export interface OperacaoResponseDTO {
+  id: string
+  modulo: ModuloResponseDTO
+  nome: string
+  codigo: string
+}
+
+export interface OperacaoCreateDTO {
+  idModulo: string
+  nome: string
+  codigo: string
+}
+
 export interface PageMetadata {
   size: number
   number: number
