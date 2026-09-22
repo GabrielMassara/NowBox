@@ -53,3 +53,16 @@ export interface PageResponse<T> {
   content: T[]
   number: number
 }
+
+export interface MenuModuloResponseDTO {
+  id: string
+  nome: string
+  rota: string
+}
+
+export interface MenuSessaoResponseDTO {
+  id: string
+  nome: string
+  rota: string
+  modulos: MenuModuloResponseDTO[]
+}

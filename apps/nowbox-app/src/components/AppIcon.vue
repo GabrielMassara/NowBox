@@ -76,6 +76,21 @@ defineProps<{ name: string; size?: number }>()
       <circle cx="7.5" cy="7.5" r="1.3" fill="currentColor" stroke="none" />
     </template>
 
+    <template v-else-if="name === 'layers'">
+      <polygon points="12 3 3 8 12 13 21 8" />
+      <polyline points="3 12 12 17 21 12" />
+      <polyline points="3 16 12 21 21 16" />
+    </template>
+
+    <template v-else-if="name === 'map-pin'">
+      <path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </template>
+
+    <template v-else-if="name === 'folder'">
+      <path d="M3 6a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </template>
+
     <template v-else-if="name === 'settings'">
       <line x1="4" y1="6" x2="20" y2="6" />
       <circle cx="9" cy="6" r="2" fill="currentColor" stroke="none" />
