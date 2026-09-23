@@ -91,6 +91,12 @@ const router = createRouter({
           component: () => import('../views/operacoes/OperacaoManterView.vue'),
           meta: { title: 'Editar operação', subtitle: 'Atualize os dados da operação' },
         },
+        {
+          path: 'estados',
+          name: 'estados',
+          component: () => import('../views/estados/EstadoListView.vue'),
+          meta: { title: 'Estados', subtitle: 'Consulte os estados cadastrados no sistema' },
+        },
       ],
     },
   ],
