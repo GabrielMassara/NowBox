@@ -92,6 +92,24 @@ const router = createRouter({
           meta: { title: 'Editar operação', subtitle: 'Atualize os dados da operação' },
         },
         {
+          path: 'cargos',
+          name: 'cargos',
+          component: () => import('../views/cargos/CargoListView.vue'),
+          meta: { title: 'Cargos', subtitle: 'Gerencie os cargos das unidades' },
+        },
+        {
+          path: 'cargos/novo',
+          name: 'cargo-novo',
+          component: () => import('../views/cargos/CargoManterView.vue'),
+          meta: { title: 'Novo cargo', subtitle: 'Cadastre um novo cargo em uma unidade' },
+        },
+        {
+          path: 'cargos/:id/editar',
+          name: 'cargo-editar',
+          component: () => import('../views/cargos/CargoManterView.vue'),
+          meta: { title: 'Editar cargo', subtitle: 'Atualize os dados do cargo' },
+        },
+        {
           path: 'estados',
           name: 'estados',
           component: () => import('../views/estados/EstadoListView.vue'),
