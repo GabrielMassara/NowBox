@@ -104,6 +104,17 @@ export interface OperacaoCreateDTO {
   codigo: string
 }
 
+export interface CargoResponseDTO {
+  id: string
+  nome: string
+  unidade: UnidadeEntity
+}
+
+export interface CargoCreateDTO {
+  idUnidade: string
+  nome: string
+}
+
 export interface PageMetadata {
   size: number
   number: number

@@ -7,6 +7,12 @@ export interface MinhaUnidade {
 }
 
 export const unidadeService = {
+  listar(pagina: number, tamanho: number) {
+    const params = new URLSearchParams({ page: String(pagina), size: String(tamanho) })
+
+    return http.get<PageResponse<UnidadeEntity>>(`/v1/unidade?${params}`)
+  },
+
   async listarMinhasUnidades(idUsuario: string): Promise<MinhaUnidade[]> {
     const params = new URLSearchParams({
       page: '0',
