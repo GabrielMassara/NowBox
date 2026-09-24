@@ -34,6 +34,23 @@ export interface UnidadeEntity {
   estado: EstadoEntity
 }
 
+export interface UnidadeResponseDTO extends UnidadeEntity {
+  createdAt?: string
+  deletedAt?: string
+}
+
+export interface UnidadeCreateDTO {
+  idEstado: string
+  nome: string
+  cnpj: string
+  endereco: string
+  numero: string
+  complemento?: string
+  bairro: string
+  cep: string
+  cidade: string
+}
+
 export interface CargoEntity {
   id: string
   nome: string

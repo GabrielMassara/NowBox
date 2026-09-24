@@ -1,16 +1,50 @@
 import { http } from '../lib/http'
-import type { AtribuicaoResponseDTO, CargoEntity, PageResponse, UnidadeEntity } from '../types/api'
+import type {
+  AtribuicaoResponseDTO,
+  CargoEntity,
+  PageResponse,
+  UnidadeCreateDTO,
+  UnidadeEntity,
+  UnidadeResponseDTO,
+} from '../types/api'
 
 export interface MinhaUnidade {
   unidade: UnidadeEntity
   cargo: CargoEntity
 }
 
-export const unidadeService = {
-  listar(pagina: number, tamanho: number) {
-    const params = new URLSearchParams({ page: String(pagina), size: String(tamanho) })
+export interface UnidadeFiltro {
+  idEstado?: string
+  nome?: string
+  cnpj?: string
+  cidade?: string
+}
 
-    return http.get<PageResponse<UnidadeEntity>>(`/v1/unidade?${params}`)
+export const unidadeService = {
+  listar(pagina: number, tamanho: number, filtro: UnidadeFiltro = {}) {
+    const params = new URLSearchParams({ page: String(pagina), size: String(tamanho) })
+    if (filtro.idEstado) params.set('idEstado', filtro.idEstado)
+    if (filtro.nome) params.set('nome', filtro.nome)
+    if (filtro.cnpj) params.set('cnpj', filtro.cnpj)
+    if (filtro.cidade) params.set('cidade', filtro.cidade)
+
+    return http.get<PageResponse<UnidadeResponseDTO>>(`/v1/unidade?${params}`)
+  },
+
+  buscarPorId(id: string) {
+    return http.get<UnidadeResponseDTO>(`/v1/unidade/${id}`)
+  },
+
+  criar(dados: UnidadeCreateDTO) {
+    return http.post<UnidadeResponseDTO>('/v1/unidade', dados)
+  },
+
+  atualizar(id: string, dados: UnidadeCreateDTO) {
+    return http.put<UnidadeResponseDTO>(`/v1/unidade/${id}`, dados)
+  },
+
+  excluir(id: string) {
+    return http.delete<void>(`/v1/unidade/${id}`)
   },
 
   async listarMinhasUnidades(idUsuario: string): Promise<MinhaUnidade[]> {

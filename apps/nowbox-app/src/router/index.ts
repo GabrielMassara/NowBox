@@ -92,6 +92,24 @@ const router = createRouter({
           meta: { title: 'Editar operação', subtitle: 'Atualize os dados da operação' },
         },
         {
+          path: 'unidades',
+          name: 'unidades',
+          component: () => import('../views/unidades/UnidadeListView.vue'),
+          meta: { title: 'Unidades', subtitle: 'Gerencie as unidades do sistema' },
+        },
+        {
+          path: 'unidades/novo',
+          name: 'unidade-novo',
+          component: () => import('../views/unidades/UnidadeManterView.vue'),
+          meta: { title: 'Nova unidade', subtitle: 'Cadastre uma nova unidade' },
+        },
+        {
+          path: 'unidades/:id/editar',
+          name: 'unidade-editar',
+          component: () => import('../views/unidades/UnidadeManterView.vue'),
+          meta: { title: 'Editar unidade', subtitle: 'Atualize os dados da unidade' },
+        },
+        {
           path: 'cargos',
           name: 'cargos',
           component: () => import('../views/cargos/CargoListView.vue'),
