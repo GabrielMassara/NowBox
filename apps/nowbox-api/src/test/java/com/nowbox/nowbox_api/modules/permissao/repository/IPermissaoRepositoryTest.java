@@ -116,6 +116,28 @@ class IPermissaoRepositoryTest {
     }
 
     @Test
+    @DisplayName("Should return only the permissoes of the given cargo")
+    void findAllByCargoIdCase1() {
+        List<PermissaoEntity> permissoes = this.createScenario();
+        PermissaoEntity permissao1 = permissoes.get(0);
+
+        List<PermissaoEntity> result = permissaoRepository.findAllByCargoId(permissao1.getCargo().getId());
+
+        assertThat(result).isNotEmpty();
+        assertThat(result).allMatch(p -> p.getCargo().getId().equals(permissao1.getCargo().getId()));
+    }
+
+    @Test
+    @DisplayName("Should return empty list when the cargo has no permissoes")
+    void findAllByCargoIdCase2() {
+        this.createScenario();
+
+        List<PermissaoEntity> result = permissaoRepository.findAllByCargoId(UUID.randomUUID());
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
     @DisplayName("Should return the codigos of operacoes the usuario has permissao for through active atribuicoes")
     void findCodigosByUsuarioCase1() {
         EstadoEntity estado = EstadoEntity.builder().nome("Estado").uf("XX").build();

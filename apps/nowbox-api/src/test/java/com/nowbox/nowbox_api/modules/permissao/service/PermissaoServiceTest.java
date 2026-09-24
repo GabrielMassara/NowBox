@@ -7,6 +7,7 @@ import com.nowbox.nowbox_api.modules.operacao.entity.OperacaoEntity;
 import com.nowbox.nowbox_api.modules.operacao.repository.IOperacaoRepository;
 import com.nowbox.nowbox_api.modules.permissao.dto.PermissaoCreateDTO;
 import com.nowbox.nowbox_api.modules.permissao.dto.PermissaoFilterDTO;
+import com.nowbox.nowbox_api.modules.permissao.dto.PermissaoLoteDTO;
 import com.nowbox.nowbox_api.modules.permissao.dto.PermissaoResponseDTO;
 import com.nowbox.nowbox_api.modules.permissao.entity.PermissaoEntity;
 import com.nowbox.nowbox_api.modules.permissao.repository.IPermissaoRepository;
@@ -22,11 +23,13 @@ import org.springframework.data.domain.PageImpl;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyIterable;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -400,6 +403,119 @@ class PermissaoServiceTest {
 
         // verifica se nunca chegou a salvar, ja que a operacao nao existe
         verify(permissaoRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should create the new permissoes and remove the ones not sent when syncing a cargo")
+    void syncByCargoCase1() {
+        // cargo e operacoes utilizados na sincronizacao
+        UUID idCargo = UUID.randomUUID();
+        UUID idMantida = UUID.randomUUID();
+        UUID idNova = UUID.randomUUID();
+        UUID idRemovida = UUID.randomUUID();
+        CargoEntity cargo = CargoEntity.builder().id(idCargo).nome("Cargo").build();
+        OperacaoEntity mantida = OperacaoEntity.builder().id(idMantida).nome("Mantida").codigo("OP1").build();
+        OperacaoEntity nova = OperacaoEntity.builder().id(idNova).nome("Nova").codigo("OP2").build();
+        OperacaoEntity removida = OperacaoEntity.builder().id(idRemovida).nome("Removida").codigo("OP3").build();
+
+        // dados enviados: mantem a operacao OP1 e adiciona a OP2, removendo a OP3
+        PermissaoLoteDTO lote = PermissaoLoteDTO.builder().idsOperacao(Set.of(idMantida, idNova)).build();
+
+        // Mock para simular o cargo, as operacoes e as permissoes ja existentes
+        PermissaoEntity permissaoMantida = PermissaoEntity.builder().id(UUID.randomUUID()).cargo(cargo).operacao(mantida).build();
+        PermissaoEntity permissaoRemovida = PermissaoEntity.builder().id(UUID.randomUUID()).cargo(cargo).operacao(removida).build();
+        PermissaoEntity permissaoNova = PermissaoEntity.builder().id(UUID.randomUUID()).cargo(cargo).operacao(nova).build();
+        when(cargoRepository.findById(idCargo)).thenReturn(Optional.of(cargo));
+        when(operacaoRepository.findAllById(any())).thenReturn(List.of(mantida, nova));
+        when(permissaoRepository.findAllByCargoId(idCargo))
+                .thenReturn(List.of(permissaoMantida, permissaoRemovida))
+                .thenReturn(List.of(permissaoMantida, permissaoNova));
+
+        // chama a funcao syncByCargo
+        List<PermissaoResponseDTO> result = permissaoService.syncByCargo(idCargo, lote);
+
+        // retorna o estado final das permissoes do cargo
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(r -> r.getOperacao().getId()).containsExactlyInAnyOrder(idMantida, idNova);
+
+        // verifica se removeu apenas a permissao que nao foi enviada
+        verify(permissaoRepository).deleteAll(List.of(permissaoRemovida));
+
+        // verifica se criou apenas a permissao que ainda nao existia
+        verify(permissaoRepository).saveAll(argThat((Iterable<PermissaoEntity> e) -> {
+            List<PermissaoEntity> lista = new java.util.ArrayList<>();
+            e.forEach(lista::add);
+            return lista.size() == 1 && lista.getFirst().getOperacao().equals(nova) && lista.getFirst().getCargo().equals(cargo);
+        }));
+    }
+
+    @Test
+    @DisplayName("Should remove every permissao when syncing a cargo with no operacoes")
+    void syncByCargoCase2() {
+        // cargo com uma permissao existente
+        UUID idCargo = UUID.randomUUID();
+        CargoEntity cargo = CargoEntity.builder().id(idCargo).nome("Cargo").build();
+        OperacaoEntity operacao = OperacaoEntity.builder().id(UUID.randomUUID()).nome("Operacao").codigo("OP1").build();
+        PermissaoEntity existente = PermissaoEntity.builder().id(UUID.randomUUID()).cargo(cargo).operacao(operacao).build();
+
+        // dados enviados sem nenhuma operacao
+        PermissaoLoteDTO lote = PermissaoLoteDTO.builder().idsOperacao(Set.of()).build();
+
+        // Mock para simular o cargo e as permissoes existentes
+        when(cargoRepository.findById(idCargo)).thenReturn(Optional.of(cargo));
+        when(operacaoRepository.findAllById(any())).thenReturn(List.of());
+        when(permissaoRepository.findAllByCargoId(idCargo)).thenReturn(List.of(existente)).thenReturn(List.of());
+
+        // chama a funcao syncByCargo
+        List<PermissaoResponseDTO> result = permissaoService.syncByCargo(idCargo, lote);
+
+        assertThat(result).isEmpty();
+
+        // verifica se removeu a permissao existente e nao criou nenhuma
+        verify(permissaoRepository).deleteAll(List.of(existente));
+        verify(permissaoRepository).saveAll(List.of());
+    }
+
+    @Test
+    @DisplayName("Should throw exception when syncing a cargo that does not exist")
+    void syncByCargoCase3() {
+        // id do cargo inexistente
+        UUID idCargo = UUID.randomUUID();
+        PermissaoLoteDTO lote = PermissaoLoteDTO.builder().idsOperacao(Set.of(UUID.randomUUID())).build();
+
+        // Mock para simular que o cargo nao existe
+        when(cargoRepository.findById(idCargo)).thenReturn(Optional.empty());
+
+        // chama a funcao syncByCargo e verifica se lanca a excecao esperada
+        assertThrows(NaoEncontradoException.class, () -> permissaoService.syncByCargo(idCargo, lote));
+
+        // verifica se nunca chegou a buscar as operacoes nem a alterar as permissoes
+        verify(operacaoRepository, never()).findAllById(anyIterable());
+        verify(permissaoRepository, never()).deleteAll(anyIterable());
+        verify(permissaoRepository, never()).saveAll(anyIterable());
+    }
+
+    @Test
+    @DisplayName("Should throw exception when syncing a cargo with an operacao that does not exist")
+    void syncByCargoCase4() {
+        // cargo existente e operacao inexistente
+        UUID idCargo = UUID.randomUUID();
+        UUID idOperacaoExistente = UUID.randomUUID();
+        UUID idOperacaoInexistente = UUID.randomUUID();
+        CargoEntity cargo = CargoEntity.builder().id(idCargo).nome("Cargo").build();
+        OperacaoEntity operacao = OperacaoEntity.builder().id(idOperacaoExistente).nome("Operacao").codigo("OP1").build();
+        PermissaoLoteDTO lote = PermissaoLoteDTO.builder().idsOperacao(Set.of(idOperacaoExistente, idOperacaoInexistente)).build();
+
+        // Mock para simular que apenas uma das operacoes existe
+        when(cargoRepository.findById(idCargo)).thenReturn(Optional.of(cargo));
+        when(operacaoRepository.findAllById(any())).thenReturn(List.of(operacao));
+
+        // chama a funcao syncByCargo e verifica se lanca a excecao esperada
+        assertThrows(NaoEncontradoException.class, () -> permissaoService.syncByCargo(idCargo, lote));
+
+        // verifica se nunca chegou a alterar as permissoes
+        verify(permissaoRepository, never()).deleteAll(anyIterable());
+        verify(permissaoRepository, never()).saveAll(anyIterable());
     }
 
     @Test
