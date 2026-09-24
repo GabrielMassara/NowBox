@@ -5,6 +5,7 @@ import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
 import com.nowbox.nowbox_api.modules.cargo.entity.CargoEntity;
 import com.nowbox.nowbox_api.modules.operacao.entity.OperacaoEntity;
 import com.nowbox.nowbox_api.modules.permissao.dto.PermissaoCreateDTO;
+import com.nowbox.nowbox_api.modules.permissao.dto.PermissaoLoteDTO;
 import com.nowbox.nowbox_api.modules.permissao.dto.PermissaoResponseDTO;
 import com.nowbox.nowbox_api.modules.permissao.service.PermissaoService;
 import org.junit.jupiter.api.DisplayName;
@@ -19,6 +20,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -198,6 +200,52 @@ class PermissaoControllerTest {
 
         // verifica se o service foi chamado com o id e os dados corretos
         verify(permissaoService).update(any(PermissaoCreateDTO.class), eq(id));
+    }
+
+    @Test
+    @DisplayName("Should sync the permissoes of a cargo with status 200")
+    void syncByCargoCase1() throws Exception {
+        // dados para sincronizacao
+        UUID idCargo = UUID.randomUUID();
+        UUID idOperacao = UUID.randomUUID();
+        PermissaoLoteDTO lote = PermissaoLoteDTO.builder().idsOperacao(Set.of(idOperacao)).build();
+
+        // Mock para simular resposta do Service
+        CargoEntity cargo = CargoEntity.builder().id(idCargo).nome("Cargo").build();
+        OperacaoEntity operacao = OperacaoEntity.builder().id(idOperacao).nome("Operacao").codigo("OP1").build();
+        PermissaoResponseDTO dto = PermissaoResponseDTO.builder().id(UUID.randomUUID()).cargo(cargo).operacao(operacao).build();
+        when(permissaoService.syncByCargo(eq(idCargo), any(PermissaoLoteDTO.class))).thenReturn(List.of(dto));
+
+        // chama o endpoint PUT /v1/permissao/cargo/{idCargo}
+        mockMvc.perform(put("/v1/permissao/cargo/{idCargo}", idCargo)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(lote)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].cargo.nome").value("Cargo"))
+                .andExpect(jsonPath("$[0].operacao.nome").value("Operacao"));
+
+        // verifica se o service foi chamado com o cargo e as operacoes corretas
+        verify(permissaoService).syncByCargo(eq(idCargo), argThat(l -> l.getIdsOperacao().contains(idOperacao)));
+    }
+
+    @Test
+    @DisplayName("Should return status 404 when syncing a cargo that does not exist")
+    void syncByCargoCase2() throws Exception {
+        // dados para sincronizacao
+        UUID idCargo = UUID.randomUUID();
+        PermissaoLoteDTO lote = PermissaoLoteDTO.builder().idsOperacao(Set.of(UUID.randomUUID())).build();
+
+        // Mock para simular que o service lanca excecao pois o cargo nao existe
+        when(permissaoService.syncByCargo(eq(idCargo), any(PermissaoLoteDTO.class))).thenThrow(new NaoEncontradoException("Cargo não encontrado"));
+
+        // chama o endpoint PUT /v1/permissao/cargo/{idCargo} e verifica se retorna 404
+        mockMvc.perform(put("/v1/permissao/cargo/{idCargo}", idCargo)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(lote)))
+                .andExpect(status().isNotFound());
+
+        // verifica se o service foi chamado com o cargo correto
+        verify(permissaoService).syncByCargo(eq(idCargo), any(PermissaoLoteDTO.class));
     }
 
     @Test

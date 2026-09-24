@@ -115,6 +115,21 @@ export interface CargoCreateDTO {
   nome: string
 }
 
+export interface PermissaoResponseDTO {
+  id: string
+  cargo: CargoEntity
+  operacao: OperacaoResponseDTO
+}
+
+export interface PermissaoCreateDTO {
+  idCargo: string
+  idOperacao: string
+}
+
+export interface PermissaoLoteDTO {
+  idsOperacao: string[]
+}
+
 export interface PageMetadata {
   size: number
   number: number

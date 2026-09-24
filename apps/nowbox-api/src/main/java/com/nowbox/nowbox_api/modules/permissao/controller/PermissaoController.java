@@ -3,6 +3,7 @@ package com.nowbox.nowbox_api.modules.permissao.controller;
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
 import com.nowbox.nowbox_api.modules.permissao.dto.PermissaoCreateDTO;
 import com.nowbox.nowbox_api.modules.permissao.dto.PermissaoFilterDTO;
+import com.nowbox.nowbox_api.modules.permissao.dto.PermissaoLoteDTO;
 import com.nowbox.nowbox_api.modules.permissao.dto.PermissaoResponseDTO;
 import com.nowbox.nowbox_api.modules.permissao.service.PermissaoService;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -47,6 +49,14 @@ public class PermissaoController {
     @PreAuthorize("hasAuthority('MOD_PERMISSAO_OPE_ATUALIZAR')")
     public PermissaoResponseDTO update(@RequestBody PermissaoCreateDTO permissao, @PathVariable UUID id) {
         return permissaoService.update(permissao, id);
+    }
+
+    // Substitui o conjunto de operacoes liberadas para o cargo em uma unica transacao
+    @PutMapping("/cargo/{idCargo}")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize("hasAuthority('MOD_PERMISSAO_OPE_SINCRONIZAR')")
+    public List<PermissaoResponseDTO> syncByCargo(@RequestBody PermissaoLoteDTO lote, @PathVariable UUID idCargo) throws NaoEncontradoException {
+        return permissaoService.syncByCargo(idCargo, lote);
     }
 
     @DeleteMapping("/{id}")

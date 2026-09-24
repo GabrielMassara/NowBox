@@ -110,6 +110,24 @@ const router = createRouter({
           meta: { title: 'Editar cargo', subtitle: 'Atualize os dados do cargo' },
         },
         {
+          path: 'permissoes',
+          name: 'permissoes',
+          component: () => import('../views/permissoes/PermissaoListView.vue'),
+          meta: { title: 'Permissões', subtitle: 'Consulte as operações liberadas para cada cargo' },
+        },
+        {
+          path: 'permissoes/nova',
+          name: 'permissao-nova',
+          component: () => import('../views/permissoes/PermissaoManterView.vue'),
+          meta: { title: 'Gerenciar permissões', subtitle: 'Libere operações para um cargo' },
+        },
+        {
+          path: 'permissoes/cargo/:idCargo/editar',
+          name: 'permissao-editar',
+          component: () => import('../views/permissoes/PermissaoManterView.vue'),
+          meta: { title: 'Editar permissões', subtitle: 'Atualize as operações liberadas para o cargo' },
+        },
+        {
           path: 'estados',
           name: 'estados',
           component: () => import('../views/estados/EstadoListView.vue'),
