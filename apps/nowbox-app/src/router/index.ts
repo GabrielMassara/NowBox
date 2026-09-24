@@ -92,6 +92,24 @@ const router = createRouter({
           meta: { title: 'Editar operação', subtitle: 'Atualize os dados da operação' },
         },
         {
+          path: 'usuarios',
+          name: 'usuarios',
+          component: () => import('../views/usuarios/UsuarioListView.vue'),
+          meta: { title: 'Usuários', subtitle: 'Gerencie os usuários do sistema' },
+        },
+        {
+          path: 'usuarios/novo',
+          name: 'usuario-novo',
+          component: () => import('../views/usuarios/UsuarioManterView.vue'),
+          meta: { title: 'Novo usuário', subtitle: 'Cadastre um novo usuário' },
+        },
+        {
+          path: 'usuarios/:id/editar',
+          name: 'usuario-editar',
+          component: () => import('../views/usuarios/UsuarioManterView.vue'),
+          meta: { title: 'Editar usuário', subtitle: 'Atualize os dados do usuário' },
+        },
+        {
           path: 'unidades',
           name: 'unidades',
           component: () => import('../views/unidades/UnidadeListView.vue'),
