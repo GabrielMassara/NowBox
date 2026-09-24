@@ -13,6 +13,16 @@ export interface UsuarioResponseDTO {
   email: string
   cpf: string
   sexo: string
+  createdAt?: string
+  deletedAt?: string
+}
+
+export interface UsuarioCreateDTO {
+  nome: string
+  email: string
+  cpf: string
+  sexo: string
+  senha: string
 }
 
 export interface EstadoEntity {
