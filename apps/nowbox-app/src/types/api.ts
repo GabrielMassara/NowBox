@@ -69,8 +69,15 @@ export interface CargoEntity {
 
 export interface AtribuicaoResponseDTO {
   id: string
-  usuario: { id: string; nome: string; email: string }
+  usuario: UsuarioResponseDTO
   cargo: CargoEntity
+  createdAt?: string
+  deletedAt?: string
+}
+
+export interface AtribuicaoCreateDTO {
+  idUsuario: string
+  idCargo: string
 }
 
 export interface PageResponse<T> {
