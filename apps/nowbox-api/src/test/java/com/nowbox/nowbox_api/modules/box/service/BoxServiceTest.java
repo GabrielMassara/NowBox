@@ -1,8 +1,10 @@
 package com.nowbox.nowbox_api.modules.box.service;
 
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
+import com.nowbox.nowbox_api.common.exception.RequisicaoInvalidaException;
 import com.nowbox.nowbox_api.modules.box.dto.BoxCreateDTO;
 import com.nowbox.nowbox_api.modules.box.dto.BoxFilterDTO;
+import com.nowbox.nowbox_api.modules.box.dto.BoxLoteDTO;
 import com.nowbox.nowbox_api.modules.box.dto.BoxResponseDTO;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.box.repository.IBoxRepository;
@@ -245,6 +247,238 @@ class BoxServiceTest {
 
         // verifica se nunca chegou a salvar, ja que a unidade nao existe
         verify(boxRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should create every box of the interval when none of them exists")
+    void createBatchCase1() {
+        // id da unidade utilizado na criacao
+        UUID idUnidade = UUID.randomUUID();
+        UnidadeEntity unidade = UnidadeEntity.builder().id(idUnidade).nome("Unidade Test").build();
+
+        // dados para criacao em lote
+        BoxLoteDTO lote = BoxLoteDTO.builder()
+                .idUnidade(idUnidade).prefixo("BOX-").numeroInicial(1).numeroFinal(3)
+                .tamanho(BigDecimal.valueOf(6)).dimensoes("2x3").disponivel(true).preco(BigDecimal.valueOf(200.00))
+                .build();
+
+        // Mock para simular que a unidade existe e que nenhum numero esta cadastrado
+        when(unidadeRepository.findByIdAndDeletedAtIsNull(idUnidade)).thenReturn(Optional.of(unidade));
+        when(boxRepository.findNumerosCadastrados(idUnidade, List.of("box-1", "box-2", "box-3"))).thenReturn(List.of());
+        when(boxRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // chama a funcao createBatch
+        List<BoxResponseDTO> result = boxService.createBatch(lote);
+
+        assertThat(result).extracting(BoxResponseDTO::getNumero).containsExactly("BOX-1", "BOX-2", "BOX-3");
+        assertThat(result).allMatch(b -> b.getUnidade().equals(unidade) && b.getPreco().equals(BigDecimal.valueOf(200.00)));
+
+        // verifica se ao chamar o saveAll ele passou os tres boxes com os dados em comum
+        verify(boxRepository).saveAll(argThat(boxes -> {
+            List<BoxEntity> lista = (List<BoxEntity>) boxes;
+            return lista.size() == 3 && lista.stream().allMatch(e -> e.getDimensoes().equals("2x3") && e.getDisponivel());
+        }));
+    }
+
+    @Test
+    @DisplayName("Should ignore the numeros that already exist in the unidade")
+    void createBatchCase2() {
+        // id da unidade utilizado na criacao
+        UUID idUnidade = UUID.randomUUID();
+        UnidadeEntity unidade = UnidadeEntity.builder().id(idUnidade).nome("Unidade Test").build();
+
+        // dados para criacao em lote
+        BoxLoteDTO lote = BoxLoteDTO.builder().idUnidade(idUnidade).prefixo("BOX-").numeroInicial(1).numeroFinal(3).build();
+
+        // Mock para simular que a unidade existe e que o box 2 ja esta cadastrado (em minusculo)
+        when(unidadeRepository.findByIdAndDeletedAtIsNull(idUnidade)).thenReturn(Optional.of(unidade));
+        when(boxRepository.findNumerosCadastrados(idUnidade, List.of("box-1", "box-2", "box-3"))).thenReturn(List.of("box-2"));
+        when(boxRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // chama a funcao createBatch
+        List<BoxResponseDTO> result = boxService.createBatch(lote);
+
+        assertThat(result).extracting(BoxResponseDTO::getNumero).containsExactly("BOX-1", "BOX-3");
+    }
+
+    @Test
+    @DisplayName("Should pad the numeros with zeros when completarComZeros is true")
+    void createBatchCase3() {
+        // id da unidade utilizado na criacao
+        UUID idUnidade = UUID.randomUUID();
+        UnidadeEntity unidade = UnidadeEntity.builder().id(idUnidade).nome("Unidade Test").build();
+
+        // dados para criacao em lote de 8 a 10, sem prefixo
+        BoxLoteDTO lote = BoxLoteDTO.builder().idUnidade(idUnidade).numeroInicial(8).numeroFinal(10).completarComZeros(true).build();
+
+        // Mock para simular que a unidade existe e que nenhum numero esta cadastrado
+        when(unidadeRepository.findByIdAndDeletedAtIsNull(idUnidade)).thenReturn(Optional.of(unidade));
+        when(boxRepository.findNumerosCadastrados(any(), any())).thenReturn(List.of());
+        when(boxRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // chama a funcao createBatch
+        List<BoxResponseDTO> result = boxService.createBatch(lote);
+
+        assertThat(result).extracting(BoxResponseDTO::getNumero).containsExactly("08", "09", "10");
+    }
+
+    @Test
+    @DisplayName("Should return an empty list when every numero of the interval already exists")
+    void createBatchCase4() {
+        // id da unidade utilizado na criacao
+        UUID idUnidade = UUID.randomUUID();
+        UnidadeEntity unidade = UnidadeEntity.builder().id(idUnidade).nome("Unidade Test").build();
+
+        // dados para criacao em lote
+        BoxLoteDTO lote = BoxLoteDTO.builder().idUnidade(idUnidade).numeroInicial(1).numeroFinal(2).build();
+
+        // Mock para simular que os dois numeros ja estao cadastrados
+        when(unidadeRepository.findByIdAndDeletedAtIsNull(idUnidade)).thenReturn(Optional.of(unidade));
+        when(boxRepository.findNumerosCadastrados(idUnidade, List.of("1", "2"))).thenReturn(List.of("1", "2"));
+        when(boxRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // chama a funcao createBatch
+        List<BoxResponseDTO> result = boxService.createBatch(lote);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should throw exception when creating a batch with a unidade that does not exist")
+    void createBatchCase5() {
+        // id da unidade inexistente
+        UUID idUnidade = UUID.randomUUID();
+
+        // dados para criacao em lote
+        BoxLoteDTO lote = BoxLoteDTO.builder().idUnidade(idUnidade).numeroInicial(1).numeroFinal(3).build();
+
+        // Mock para simular que a unidade nao existe
+        when(unidadeRepository.findByIdAndDeletedAtIsNull(idUnidade)).thenReturn(Optional.empty());
+
+        // chama a funcao createBatch e verifica se lanca a excecao esperada
+        assertThrows(NaoEncontradoException.class, () -> boxService.createBatch(lote));
+
+        // verifica se nunca chegou a salvar, ja que a unidade nao existe
+        verify(boxRepository, never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("Should throw exception when the interval of the batch is invalid")
+    void createBatchCase6() {
+        // id da unidade utilizado na criacao
+        UUID idUnidade = UUID.randomUUID();
+        UnidadeEntity unidade = UnidadeEntity.builder().id(idUnidade).nome("Unidade Test").build();
+        when(unidadeRepository.findByIdAndDeletedAtIsNull(idUnidade)).thenReturn(Optional.of(unidade));
+
+        // numero final menor que o inicial
+        BoxLoteDTO invertido = BoxLoteDTO.builder().idUnidade(idUnidade).numeroInicial(5).numeroFinal(1).build();
+        assertThrows(RequisicaoInvalidaException.class, () -> boxService.createBatch(invertido));
+
+        // intervalo ausente
+        BoxLoteDTO ausente = BoxLoteDTO.builder().idUnidade(idUnidade).build();
+        assertThrows(RequisicaoInvalidaException.class, () -> boxService.createBatch(ausente));
+
+        // numero inicial negativo
+        BoxLoteDTO negativo = BoxLoteDTO.builder().idUnidade(idUnidade).numeroInicial(-1).numeroFinal(3).build();
+        assertThrows(RequisicaoInvalidaException.class, () -> boxService.createBatch(negativo));
+
+        // verifica se nunca chegou a salvar
+        verify(boxRepository, never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("Should throw exception when the batch has more boxes than the limit")
+    void createBatchCase7() {
+        // id da unidade utilizado na criacao
+        UUID idUnidade = UUID.randomUUID();
+        UnidadeEntity unidade = UnidadeEntity.builder().id(idUnidade).nome("Unidade Test").build();
+        when(unidadeRepository.findByIdAndDeletedAtIsNull(idUnidade)).thenReturn(Optional.of(unidade));
+
+        // 201 boxes, um acima do limite
+        BoxLoteDTO lote = BoxLoteDTO.builder().idUnidade(idUnidade).numeroInicial(1).numeroFinal(201).build();
+
+        assertThrows(RequisicaoInvalidaException.class, () -> boxService.createBatch(lote));
+
+        // verifica se nunca chegou a salvar
+        verify(boxRepository, never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("Should throw exception when a numero of the batch exceeds the column length")
+    void createBatchCase8() {
+        // id da unidade utilizado na criacao
+        UUID idUnidade = UUID.randomUUID();
+        UnidadeEntity unidade = UnidadeEntity.builder().id(idUnidade).nome("Unidade Test").build();
+        when(unidadeRepository.findByIdAndDeletedAtIsNull(idUnidade)).thenReturn(Optional.of(unidade));
+
+        // prefixo de 19 caracteres mais o numero 10 ultrapassa os 20 caracteres da coluna
+        BoxLoteDTO lote = BoxLoteDTO.builder().idUnidade(idUnidade).prefixo("ABCDEFGHIJKLMNOPQRS").numeroInicial(1).numeroFinal(10).build();
+
+        assertThrows(RequisicaoInvalidaException.class, () -> boxService.createBatch(lote));
+
+        // verifica se nunca chegou a salvar
+        verify(boxRepository, never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("Should create box as disponivel when the field is not informed")
+    void createCase3() {
+        // id da unidade utilizado na criacao
+        UUID idUnidade = UUID.randomUUID();
+        UnidadeEntity unidade = UnidadeEntity.builder().id(idUnidade).nome("Unidade Test").build();
+
+        // dados para criacao sem informar disponivel
+        BoxCreateDTO box = BoxCreateDTO.builder().idUnidade(idUnidade).numero("101").build();
+
+        // Mock para simular que a unidade existe
+        when(unidadeRepository.findByIdAndDeletedAtIsNull(idUnidade)).thenReturn(Optional.of(unidade));
+        when(boxRepository.save(any(BoxEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // chama a funcao create
+        BoxResponseDTO result = boxService.create(box);
+
+        assertThat(result.getDisponivel()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Should keep box blocked when disponivel is explicitly false")
+    void createCase4() {
+        // id da unidade utilizado na criacao
+        UUID idUnidade = UUID.randomUUID();
+        UnidadeEntity unidade = UnidadeEntity.builder().id(idUnidade).nome("Unidade Test").build();
+
+        // dados para criacao com o box bloqueado
+        BoxCreateDTO box = BoxCreateDTO.builder().idUnidade(idUnidade).numero("101").disponivel(false).build();
+
+        // Mock para simular que a unidade existe
+        when(unidadeRepository.findByIdAndDeletedAtIsNull(idUnidade)).thenReturn(Optional.of(unidade));
+        when(boxRepository.save(any(BoxEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // chama a funcao create
+        BoxResponseDTO result = boxService.create(box);
+
+        assertThat(result.getDisponivel()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should create the boxes of the batch as disponivel when the field is not informed")
+    void createBatchCase9() {
+        // id da unidade utilizado na criacao
+        UUID idUnidade = UUID.randomUUID();
+        UnidadeEntity unidade = UnidadeEntity.builder().id(idUnidade).nome("Unidade Test").build();
+
+        // dados para criacao em lote sem informar disponivel
+        BoxLoteDTO lote = BoxLoteDTO.builder().idUnidade(idUnidade).numeroInicial(1).numeroFinal(2).build();
+
+        // Mock para simular que a unidade existe e que nenhum numero esta cadastrado
+        when(unidadeRepository.findByIdAndDeletedAtIsNull(idUnidade)).thenReturn(Optional.of(unidade));
+        when(boxRepository.findNumerosCadastrados(any(), any())).thenReturn(List.of());
+        when(boxRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // chama a funcao createBatch
+        List<BoxResponseDTO> result = boxService.createBatch(lote);
+
+        assertThat(result).hasSize(2).allMatch(BoxResponseDTO::getDisponivel);
     }
 
     @Test

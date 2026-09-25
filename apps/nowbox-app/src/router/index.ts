@@ -200,6 +200,30 @@ const router = createRouter({
           meta: { title: 'Editar cliente', subtitle: 'Atualize os dados do cliente' },
         },
         {
+          path: 'boxes',
+          name: 'boxes',
+          component: () => import('../views/boxes/BoxListView.vue'),
+          meta: { title: 'Boxes', subtitle: 'Gerencie os boxes da unidade selecionada' },
+        },
+        {
+          path: 'boxes/novo',
+          name: 'box-novo',
+          component: () => import('../views/boxes/BoxManterView.vue'),
+          meta: { title: 'Novo box', subtitle: 'Cadastre um novo box na unidade' },
+        },
+        {
+          path: 'boxes/lote',
+          name: 'box-lote',
+          component: () => import('../views/boxes/BoxLoteView.vue'),
+          meta: { title: 'Cadastro em lote', subtitle: 'Cadastre vários boxes de uma vez informando um intervalo' },
+        },
+        {
+          path: 'boxes/:id/editar',
+          name: 'box-editar',
+          component: () => import('../views/boxes/BoxManterView.vue'),
+          meta: { title: 'Editar box', subtitle: 'Atualize os dados do box' },
+        },
+        {
           path: 'estados',
           name: 'estados',
           component: () => import('../views/estados/EstadoListView.vue'),

@@ -3,6 +3,7 @@ package com.nowbox.nowbox_api.modules.box.controller;
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
 import com.nowbox.nowbox_api.modules.box.dto.BoxCreateDTO;
 import com.nowbox.nowbox_api.modules.box.dto.BoxFilterDTO;
+import com.nowbox.nowbox_api.modules.box.dto.BoxLoteDTO;
 import com.nowbox.nowbox_api.modules.box.dto.BoxResponseDTO;
 import com.nowbox.nowbox_api.modules.box.service.BoxService;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -40,6 +42,13 @@ public class BoxController {
     @PreAuthorize("hasAuthority('MOD_BOX_OPE_CADASTRAR') and @acessoUnidadeService.temAcesso(#box.idUnidade)")
     public BoxResponseDTO create(@RequestBody BoxCreateDTO box) throws NaoEncontradoException {
         return boxService.create(box);
+    }
+
+    @PostMapping("/lote")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('MOD_BOX_OPE_CADASTRAR_LOTE') and @acessoUnidadeService.temAcesso(#lote.idUnidade)")
+    public List<BoxResponseDTO> createBatch(@RequestBody BoxLoteDTO lote) throws NaoEncontradoException {
+        return boxService.createBatch(lote);
     }
 
     @PutMapping("/{id}")

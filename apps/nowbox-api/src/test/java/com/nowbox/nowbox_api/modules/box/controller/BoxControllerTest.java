@@ -2,7 +2,9 @@ package com.nowbox.nowbox_api.modules.box.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
+import com.nowbox.nowbox_api.common.exception.RequisicaoInvalidaException;
 import com.nowbox.nowbox_api.modules.box.dto.BoxCreateDTO;
+import com.nowbox.nowbox_api.modules.box.dto.BoxLoteDTO;
 import com.nowbox.nowbox_api.modules.box.dto.BoxResponseDTO;
 import com.nowbox.nowbox_api.modules.box.service.BoxService;
 import com.nowbox.nowbox_api.modules.unidade.entity.UnidadeEntity;
@@ -146,6 +148,69 @@ class BoxControllerTest {
 
         // verifica se o service foi chamado com os dados corretos
         verify(boxService).create(any(BoxCreateDTO.class));
+    }
+
+    @Test
+    @DisplayName("Should create boxes in batch with status 201")
+    void createBatchCase1() throws Exception {
+        // dados para criacao em lote
+        UUID idUnidade = UUID.randomUUID();
+        BoxLoteDTO lote = BoxLoteDTO.builder().idUnidade(idUnidade).prefixo("BOX-").numeroInicial(1).numeroFinal(2).build();
+
+        // Mock para simular resposta do Service
+        UnidadeEntity unidade = UnidadeEntity.builder().id(idUnidade).nome("Unidade Test").build();
+        BoxResponseDTO dto1 = BoxResponseDTO.builder().id(UUID.randomUUID()).numero("BOX-1").unidade(unidade).build();
+        BoxResponseDTO dto2 = BoxResponseDTO.builder().id(UUID.randomUUID()).numero("BOX-2").unidade(unidade).build();
+        when(boxService.createBatch(any(BoxLoteDTO.class))).thenReturn(List.of(dto1, dto2));
+
+        // chama o endpoint POST /v1/box/lote
+        mockMvc.perform(post("/v1/box/lote")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(lote)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$[0].numero").value("BOX-1"))
+                .andExpect(jsonPath("$[1].numero").value("BOX-2"));
+
+        // verifica se o service foi chamado com os dados corretos
+        verify(boxService).createBatch(argThat(l -> l.getIdUnidade().equals(idUnidade) && l.getNumeroFinal() == 2));
+    }
+
+    @Test
+    @DisplayName("Should return status 404 when creating a batch with a unidade that does not exist")
+    void createBatchCase2() throws Exception {
+        // dados para criacao em lote com unidade inexistente
+        BoxLoteDTO lote = BoxLoteDTO.builder().idUnidade(UUID.randomUUID()).numeroInicial(1).numeroFinal(2).build();
+
+        // Mock para simular que o service lanca excecao pois a unidade nao existe
+        when(boxService.createBatch(any(BoxLoteDTO.class))).thenThrow(new NaoEncontradoException("Unidade inválida"));
+
+        // chama o endpoint POST /v1/box/lote e verifica se retorna 404
+        mockMvc.perform(post("/v1/box/lote")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(lote)))
+                .andExpect(status().isNotFound());
+
+        // verifica se o service foi chamado com os dados corretos
+        verify(boxService).createBatch(any(BoxLoteDTO.class));
+    }
+
+    @Test
+    @DisplayName("Should return status 400 when the interval of the batch is invalid")
+    void createBatchCase3() throws Exception {
+        // dados para criacao em lote com intervalo invalido
+        BoxLoteDTO lote = BoxLoteDTO.builder().idUnidade(UUID.randomUUID()).numeroInicial(5).numeroFinal(1).build();
+
+        // Mock para simular que o service lanca excecao pois o intervalo e invalido
+        when(boxService.createBatch(any(BoxLoteDTO.class))).thenThrow(new RequisicaoInvalidaException("Intervalo de numeração inválido"));
+
+        // chama o endpoint POST /v1/box/lote e verifica se retorna 400
+        mockMvc.perform(post("/v1/box/lote")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(lote)))
+                .andExpect(status().isBadRequest());
+
+        // verifica se o service foi chamado com os dados corretos
+        verify(boxService).createBatch(any(BoxLoteDTO.class));
     }
 
     @Test

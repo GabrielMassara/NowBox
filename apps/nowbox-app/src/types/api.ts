@@ -124,6 +124,39 @@ export interface AtribuicaoCreateDTO {
   idCargo: string
 }
 
+export interface BoxResponseDTO {
+  id: string
+  unidade: UnidadeEntity
+  numero: string
+  tamanho: number
+  dimensoes: string
+  disponivel: boolean
+  preco: number
+  createdAt?: string
+  deletedAt?: string
+}
+
+export interface BoxCreateDTO {
+  idUnidade: string
+  numero: string
+  tamanho: number
+  dimensoes: string
+  disponivel: boolean
+  preco: number
+}
+
+export interface BoxLoteDTO {
+  idUnidade: string
+  prefixo?: string
+  numeroInicial: number
+  numeroFinal: number
+  completarComZeros: boolean
+  tamanho: number
+  dimensoes: string
+  disponivel: boolean
+  preco: number
+}
+
 export interface PageResponse<T> {
   totalPages: number
   totalElements: number

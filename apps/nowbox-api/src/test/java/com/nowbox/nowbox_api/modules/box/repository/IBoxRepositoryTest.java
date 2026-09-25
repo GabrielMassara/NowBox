@@ -133,6 +133,31 @@ class IBoxRepositoryTest {
         assertThat(result).isEmpty();
     }
 
+    @Test
+    @DisplayName("Return only the numeros already registered in the unidade, ignoring the case")
+    void findNumerosCadastradosCase1() {
+        List<BoxEntity> boxes = this.createScenario();
+        BoxEntity box1 = boxes.get(0);
+
+        // 101 existe na unidade; 999 nao existe; 201 existe, mas em outra unidade
+        List<String> result = boxRepository.findNumerosCadastrados(box1.getUnidade().getId(), List.of("101", "999", "201"));
+
+        assertThat(result).containsExactly("101");
+    }
+
+    @Test
+    @DisplayName("Should not return numero of a soft deleted box")
+    void findNumerosCadastradosCase2() {
+        List<BoxEntity> boxes = this.createScenario();
+        BoxEntity box1 = boxes.get(0);
+        box1.setDeletedAt(LocalDateTime.now());
+        this.em.persist(box1);
+
+        List<String> result = boxRepository.findNumerosCadastrados(box1.getUnidade().getId(), List.of("101", "102"));
+
+        assertThat(result).containsExactly("102");
+    }
+
     private List<BoxEntity> createScenario() {
         // Cadastra um estado e uma unidade de teste
         EstadoEntity estado = EstadoEntity.builder().nome("Estado").uf("XX").build();
