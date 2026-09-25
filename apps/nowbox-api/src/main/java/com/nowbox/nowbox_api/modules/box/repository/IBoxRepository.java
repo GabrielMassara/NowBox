@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,5 +29,14 @@ public interface IBoxRepository extends JpaRepository<BoxEntity, UUID> {
                                      Pageable pageable);
 
     Optional<BoxEntity> findByIdAndDeletedAtIsNull(UUID id);
+
+    @Query("""
+            SELECT LOWER(b.numero) FROM BoxEntity b
+            WHERE b.deletedAt IS NULL
+            AND b.unidade.id = :idUnidade
+            AND LOWER(b.numero) IN :numeros
+            """)
+    List<String> findNumerosCadastrados(@Param("idUnidade") UUID idUnidade,
+                                        @Param("numeros") Collection<String> numeros);
 
 }

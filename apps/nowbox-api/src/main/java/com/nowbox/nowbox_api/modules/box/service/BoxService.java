@@ -1,8 +1,10 @@
 package com.nowbox.nowbox_api.modules.box.service;
 
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
+import com.nowbox.nowbox_api.common.exception.RequisicaoInvalidaException;
 import com.nowbox.nowbox_api.modules.box.dto.BoxCreateDTO;
 import com.nowbox.nowbox_api.modules.box.dto.BoxFilterDTO;
+import com.nowbox.nowbox_api.modules.box.dto.BoxLoteDTO;
 import com.nowbox.nowbox_api.modules.box.dto.BoxResponseDTO;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.box.repository.IBoxRepository;
@@ -16,12 +18,19 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.IntStream;
 
 @Service
 @RequiredArgsConstructor
 public class BoxService {
+
+    private static final int LIMITE_LOTE = 200;
+    private static final int TAMANHO_MAXIMO_NUMERO = 20;
 
     private final IBoxRepository boxRepository;
     private final IUnidadeRepository unidadeRepository;
@@ -73,11 +82,41 @@ public class BoxService {
                 .unidade(unidade.get())
                 .tamanho(box.getTamanho())
                 .dimensoes(box.getDimensoes())
-                .disponivel(box.getDisponivel())
+                .disponivel(liberadoPorPadrao(box.getDisponivel()))
                 .preco(box.getPreco())
                 .build());
 
         return toResponseDTO(created);
+    }
+
+    @Transactional
+    public List<BoxResponseDTO> createBatch(BoxLoteDTO lote) throws NaoEncontradoException {
+
+        Optional<UnidadeEntity> unidade = unidadeRepository.findByIdAndDeletedAtIsNull(lote.getIdUnidade());
+
+        // Se não encontrar a unidade
+        if(unidade.isEmpty()) {
+            throw new NaoEncontradoException("Unidade inválida");
+        }
+
+        List<String> numeros = gerarNumeros(lote);
+
+        Set<String> existentes = new HashSet<>(boxRepository.findNumerosCadastrados(
+                lote.getIdUnidade(), numeros.stream().map(String::toLowerCase).toList()));
+
+        List<BoxEntity> novos = numeros.stream()
+                .filter(numero -> !existentes.contains(numero.toLowerCase()))
+                .map(numero -> BoxEntity.builder()
+                        .numero(numero)
+                        .unidade(unidade.get())
+                        .tamanho(lote.getTamanho())
+                        .dimensoes(lote.getDimensoes())
+                        .disponivel(liberadoPorPadrao(lote.getDisponivel()))
+                        .preco(lote.getPreco())
+                        .build())
+                .toList();
+
+        return boxRepository.saveAll(novos).stream().map(this::toResponseDTO).toList();
     }
 
     @Transactional
@@ -115,6 +154,37 @@ public class BoxService {
 
         existente.setDeletedAt(LocalDateTime.now());
         boxRepository.save(existente);
+    }
+
+    private boolean liberadoPorPadrao(Boolean disponivel) {
+        return disponivel == null || disponivel;
+    }
+
+    // Monta os numeros do intervalo, com prefixo e zeros a esquerda opcionais
+    private List<String> gerarNumeros(BoxLoteDTO lote) {
+        Integer inicial = lote.getNumeroInicial();
+        Integer finalDoIntervalo = lote.getNumeroFinal();
+
+        if(inicial == null || finalDoIntervalo == null || inicial < 0 || finalDoIntervalo < inicial) {
+            throw new RequisicaoInvalidaException("Intervalo de numeração inválido");
+        }
+
+        if((long) finalDoIntervalo - inicial + 1 > LIMITE_LOTE) {
+            throw new RequisicaoInvalidaException("O lote aceita no máximo " + LIMITE_LOTE + " boxes por vez");
+        }
+
+        String prefixo = lote.getPrefixo() == null ? "" : lote.getPrefixo().trim();
+        int largura = Boolean.TRUE.equals(lote.getCompletarComZeros()) ? String.valueOf(finalDoIntervalo).length() : 0;
+
+        List<String> numeros = IntStream.rangeClosed(inicial, finalDoIntervalo)
+                .mapToObj(n -> prefixo + "0".repeat(Math.max(0, largura - String.valueOf(n).length())) + n)
+                .toList();
+
+        if(numeros.stream().anyMatch(numero -> numero.length() > TAMANHO_MAXIMO_NUMERO)) {
+            throw new RequisicaoInvalidaException("O número do box pode ter no máximo " + TAMANHO_MAXIMO_NUMERO + " caracteres");
+        }
+
+        return numeros;
     }
 
     private BoxResponseDTO toResponseDTO(BoxEntity entidade) {
