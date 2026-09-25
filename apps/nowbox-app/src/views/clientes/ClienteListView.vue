@@ -3,16 +3,16 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
 import { ApiError } from '../../lib/http'
-import { mascaraCnpj } from '../../lib/mascaras'
+import { mascaraCpf, mascaraTelefone } from '../../lib/mascaras'
+import { clienteService } from '../../services/cliente.service'
 import { estadoService } from '../../services/estado.service'
-import { unidadeService } from '../../services/unidade.service'
-import type { EstadoEntity, UnidadeResponseDTO } from '../../types/api'
+import type { ClienteResponseDTO, EstadoEntity } from '../../types/api'
 
 const TAMANHO_PAGINA = 10
 
 const router = useRouter()
 
-const unidades = ref<UnidadeResponseDTO[]>([])
+const clientes = ref<ClienteResponseDTO[]>([])
 const estados = ref<EstadoEntity[]>([])
 const carregando = ref(false)
 const erro = ref('')
@@ -22,18 +22,14 @@ const pagina = ref(0)
 const totalPaginas = ref(0)
 const totalElementos = ref(0)
 
-const filtro = reactive({ nome: '', cnpj: '', cidade: '', idEstado: '' })
-
-function formatarCnpj(cnpj: string) {
-  return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
-}
+const filtro = reactive({ nome: '', email: '', cpf: '', idEstado: '' })
 
 async function carregarEstados() {
   try {
     const resultado = await estadoService.listar(0, 100)
     estados.value = resultado.content
   } catch {
-    // A listagem de unidades ainda funciona sem os estados para o filtro.
+    // A listagem de clientes ainda funciona sem os estados para o filtro.
   }
 }
 
@@ -42,17 +38,17 @@ async function carregar() {
   erro.value = ''
 
   try {
-    const resultado = await unidadeService.listar(pagina.value, TAMANHO_PAGINA, {
+    const resultado = await clienteService.listar(pagina.value, TAMANHO_PAGINA, {
       nome: filtro.nome.trim() || undefined,
-      cnpj: filtro.cnpj.replace(/\D/g, '') || undefined,
-      cidade: filtro.cidade.trim() || undefined,
+      email: filtro.email.trim() || undefined,
+      cpf: filtro.cpf.replace(/\D/g, '') || undefined,
       idEstado: filtro.idEstado || undefined,
     })
-    unidades.value = resultado.content
+    clientes.value = resultado.content
     totalPaginas.value = resultado.totalPages
     totalElementos.value = resultado.totalElements
   } catch (e) {
-    erro.value = e instanceof ApiError ? e.message : 'Não foi possível carregar as unidades.'
+    erro.value = e instanceof ApiError ? e.message : 'Não foi possível carregar os clientes.'
   } finally {
     carregando.value = false
   }
@@ -65,8 +61,8 @@ function buscar() {
 
 function limparFiltro() {
   filtro.nome = ''
-  filtro.cnpj = ''
-  filtro.cidade = ''
+  filtro.email = ''
+  filtro.cpf = ''
   filtro.idEstado = ''
   buscar()
 }
@@ -77,24 +73,24 @@ function irParaPagina(novaPagina: number) {
   carregar()
 }
 
-function novaUnidade() {
-  router.push('/unidades/novo')
+function novoCliente() {
+  router.push('/clientes/novo')
 }
 
-function editarUnidade(unidade: UnidadeResponseDTO) {
-  router.push(`/unidades/${unidade.id}/editar`)
+function editarCliente(cliente: ClienteResponseDTO) {
+  router.push(`/clientes/${cliente.id}/editar`)
 }
 
-async function excluirUnidade(unidade: UnidadeResponseDTO) {
-  if (!confirm(`Excluir a unidade "${unidade.nome}"?`)) return
+async function excluirCliente(cliente: ClienteResponseDTO) {
+  if (!confirm(`Excluir o cliente "${cliente.nome}"?`)) return
 
-  excluindoId.value = unidade.id
+  excluindoId.value = cliente.id
   try {
-    await unidadeService.excluir(unidade.id)
-    if (unidades.value.length === 1 && pagina.value > 0) pagina.value -= 1
+    await clienteService.excluir(cliente.id)
+    if (clientes.value.length === 1 && pagina.value > 0) pagina.value -= 1
     await carregar()
   } catch (e) {
-    erro.value = e instanceof ApiError ? e.message : 'Não foi possível excluir a unidade.'
+    erro.value = e instanceof ApiError ? e.message : 'Não foi possível excluir o cliente.'
   } finally {
     excluindoId.value = ''
   }
@@ -107,34 +103,34 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="unidades">
-    <div class="unidades__painel">
-      <div class="unidades__toolbar">
-        <form class="unidades__filtro" @submit.prevent="buscar">
-          <div class="unidades__campo">
+  <div class="clientes">
+    <div class="clientes__painel">
+      <div class="clientes__toolbar">
+        <form class="clientes__filtro" @submit.prevent="buscar">
+          <div class="clientes__campo">
             <AppIcon name="search" :size="16" />
             <input v-model="filtro.nome" type="text" placeholder="Buscar por nome" aria-label="Buscar por nome" />
           </div>
 
-          <div class="unidades__campo">
+          <div class="clientes__campo">
+            <AppIcon name="mail" :size="16" />
+            <input v-model="filtro.email" type="text" placeholder="E-mail" aria-label="Buscar por e-mail" />
+          </div>
+
+          <div class="clientes__campo">
             <AppIcon name="search" :size="16" />
             <input
-              v-model="filtro.cnpj"
+              v-model="filtro.cpf"
               type="text"
               inputmode="numeric"
-              maxlength="18"
-              @input="filtro.cnpj = mascaraCnpj(filtro.cnpj)"
-              placeholder="CNPJ"
-              aria-label="Buscar por CNPJ"
+              maxlength="14"
+              @input="filtro.cpf = mascaraCpf(filtro.cpf)"
+              placeholder="CPF"
+              aria-label="Buscar por CPF"
             />
           </div>
 
-          <div class="unidades__campo">
-            <AppIcon name="search" :size="16" />
-            <input v-model="filtro.cidade" type="text" placeholder="Cidade" aria-label="Buscar por cidade" />
-          </div>
-
-          <div class="unidades__campo">
+          <div class="clientes__campo">
             <AppIcon name="map-pin" :size="16" />
             <select v-model="filtro.idEstado" aria-label="Filtrar por estado">
               <option value="">Todos os estados</option>
@@ -144,7 +140,7 @@ onMounted(() => {
 
           <button type="submit" class="btn">Filtrar</button>
           <button
-            v-if="filtro.nome || filtro.cnpj || filtro.cidade || filtro.idEstado"
+            v-if="filtro.nome || filtro.email || filtro.cpf || filtro.idEstado"
             type="button"
             class="btn"
             @click="limparFiltro"
@@ -153,67 +149,69 @@ onMounted(() => {
           </button>
         </form>
 
-        <button type="button" class="btn btn--primary" @click="novaUnidade">
+        <button type="button" class="btn btn--primary" @click="novoCliente">
           <AppIcon name="plus" :size="16" />
-          Nova unidade
+          Novo cliente
         </button>
       </div>
 
-      <div v-if="carregando" class="unidades__state">
-        <AppIcon name="loader" :size="20" class="unidades__spinner" />
-        <span>Carregando unidades...</span>
+      <div v-if="carregando" class="clientes__state">
+        <AppIcon name="loader" :size="20" class="clientes__spinner" />
+        <span>Carregando clientes...</span>
       </div>
 
-      <div v-else-if="erro" class="unidades__state unidades__state--error">
+      <div v-else-if="erro" class="clientes__state clientes__state--error">
         <AppIcon name="alert-circle" :size="20" />
         <span>{{ erro }}</span>
         <button type="button" class="btn" @click="carregar">Tentar novamente</button>
       </div>
 
-      <div v-else-if="unidades.length === 0" class="unidades__state">
-        <AppIcon name="building" :size="20" />
-        <span>Nenhuma unidade encontrada.</span>
+      <div v-else-if="clientes.length === 0" class="clientes__state">
+        <AppIcon name="users" :size="20" />
+        <span>Nenhum cliente encontrado.</span>
       </div>
 
-      <table v-else class="unidades__table">
+      <table v-else class="clientes__table">
         <thead>
           <tr>
             <th>Nome</th>
-            <th>CNPJ</th>
+            <th>E-mail</th>
+            <th>CPF</th>
+            <th>Telefone</th>
             <th>Cidade</th>
-            <th>Estado</th>
-            <th class="unidades__col-acoes">Ações</th>
+            <th class="clientes__col-acoes">Ações</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="unidade in unidades" :key="unidade.id">
-            <td class="unidades__nome" data-label="Nome">{{ unidade.nome }}</td>
-            <td data-label="CNPJ">{{ formatarCnpj(unidade.cnpj) }}</td>
-            <td data-label="Cidade">{{ unidade.cidade }}</td>
-            <td data-label="Estado">{{ unidade.estado?.uf }}</td>
-            <td class="unidades__col-acoes">
-              <div class="unidades__acoes">
+          <tr v-for="cliente in clientes" :key="cliente.id">
+            <td class="clientes__nome" data-label="Nome">{{ cliente.nome }}</td>
+            <td data-label="E-mail">{{ cliente.email }}</td>
+            <td data-label="CPF">{{ mascaraCpf(cliente.cpf) }}</td>
+            <td data-label="Telefone">{{ mascaraTelefone(cliente.telefone) }}</td>
+            <td data-label="Cidade">{{ cliente.cidade }}/{{ cliente.estado?.uf }}</td>
+            <td class="clientes__col-acoes">
+              <div class="clientes__acoes">
                 <button
                   type="button"
-                  class="unidades__acao-btn"
-                  aria-label="Editar unidade"
+                  class="clientes__acao-btn"
+                  aria-label="Editar cliente"
                   title="Editar"
-                  @click="editarUnidade(unidade)"
+                  @click="editarCliente(cliente)"
                 >
                   <AppIcon name="pencil" :size="16" />
                 </button>
                 <button
                   type="button"
-                  class="unidades__acao-btn unidades__acao-btn--perigo"
-                  aria-label="Excluir unidade"
+                  class="clientes__acao-btn clientes__acao-btn--perigo"
+                  aria-label="Excluir cliente"
                   title="Excluir"
-                  :disabled="excluindoId === unidade.id"
-                  @click="excluirUnidade(unidade)"
+                  :disabled="excluindoId === cliente.id"
+                  @click="excluirCliente(cliente)"
                 >
                   <AppIcon
-                    :name="excluindoId === unidade.id ? 'loader' : 'trash'"
+                    :name="excluindoId === cliente.id ? 'loader' : 'trash'"
                     :size="16"
-                    :class="{ 'unidades__spinner': excluindoId === unidade.id }"
+                    :class="{ 'clientes__spinner': excluindoId === cliente.id }"
                   />
                 </button>
               </div>
@@ -222,13 +220,13 @@ onMounted(() => {
         </tbody>
       </table>
 
-      <div v-if="!carregando && !erro && unidades.length > 0" class="unidades__paginacao">
-        <span class="unidades__total">{{ totalElementos }} unidade(s) no total</span>
+      <div v-if="!carregando && !erro && clientes.length > 0" class="clientes__paginacao">
+        <span class="clientes__total">{{ totalElementos }} cliente(s) no total</span>
 
-        <div class="unidades__paginacao-controles">
+        <div class="clientes__paginacao-controles">
           <button
             type="button"
-            class="unidades__pagina-btn"
+            class="clientes__pagina-btn"
             aria-label="Página anterior"
             :disabled="pagina === 0"
             @click="irParaPagina(pagina - 1)"
@@ -236,11 +234,11 @@ onMounted(() => {
             <AppIcon name="chevron-left" :size="16" />
           </button>
 
-          <span class="unidades__pagina-atual">Página {{ pagina + 1 }} de {{ Math.max(totalPaginas, 1) }}</span>
+          <span class="clientes__pagina-atual">Página {{ pagina + 1 }} de {{ Math.max(totalPaginas, 1) }}</span>
 
           <button
             type="button"
-            class="unidades__pagina-btn"
+            class="clientes__pagina-btn"
             aria-label="Próxima página"
             :disabled="pagina + 1 >= totalPaginas"
             @click="irParaPagina(pagina + 1)"
@@ -254,17 +252,17 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.unidades {
+.clientes {
   padding: 22px 28px 40px;
 }
 
-.unidades__painel {
+.clientes__painel {
   background: var(--bg-surface);
   border: 1px solid var(--border-hairline);
   box-shadow: var(--shadow-card);
 }
 
-.unidades__toolbar {
+.clientes__toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -274,14 +272,14 @@ onMounted(() => {
   border-bottom: 1px solid var(--border-hairline);
 }
 
-.unidades__filtro {
+.clientes__filtro {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.unidades__campo {
+.clientes__campo {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -291,26 +289,26 @@ onMounted(() => {
   color: var(--text-muted);
 }
 
-.unidades__campo input,
-.unidades__campo select {
+.clientes__campo input,
+.clientes__campo select {
   border: none;
   outline: none;
   background: transparent;
   font: inherit;
   font-size: 13.5px;
   color: var(--text-primary);
-  width: 150px;
+  width: 160px;
 }
 
-.unidades__campo input::placeholder {
+.clientes__campo input::placeholder {
   color: var(--text-muted);
 }
 
-.unidades__filtro .btn {
+.clientes__filtro .btn {
   border-radius: 0;
 }
 
-.unidades__state {
+.clientes__state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -321,34 +319,34 @@ onMounted(() => {
   font-size: 13.5px;
 }
 
-.unidades__state--error {
+.clientes__state--error {
   color: var(--text-critical);
 }
 
-.unidades__spinner {
-  animation: unidades-spin 0.8s linear infinite;
+.clientes__spinner {
+  animation: clientes-spin 0.8s linear infinite;
   color: var(--brand-500);
 }
 
-@keyframes unidades-spin {
+@keyframes clientes-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-.unidades__table {
+.clientes__table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.unidades__table th,
-.unidades__table td {
+.clientes__table th,
+.clientes__table td {
   text-align: left;
   padding: 13px 20px;
   font-size: 13.5px;
 }
 
-.unidades__table thead th {
+.clientes__table thead th {
   background: var(--bg-surface-sunken);
   color: var(--text-muted);
   font-weight: 600;
@@ -358,34 +356,34 @@ onMounted(() => {
   border-bottom: 1px solid var(--border-hairline);
 }
 
-.unidades__table tbody tr {
+.clientes__table tbody tr {
   transition: background-color 0.15s ease;
 }
 
-.unidades__table tbody tr + tr td {
+.clientes__table tbody tr + tr td {
   border-top: 1px solid var(--border-hairline);
 }
 
-.unidades__table tbody tr:hover {
+.clientes__table tbody tr:hover {
   background: var(--brand-050);
 }
 
-.unidades__nome {
+.clientes__nome {
   font-weight: 600;
 }
 
-.unidades__col-acoes {
+.clientes__col-acoes {
   width: 1%;
   white-space: nowrap;
 }
 
-.unidades__acoes {
+.clientes__acoes {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.unidades__acao-btn {
+.clientes__acao-btn {
   width: 32px;
   height: 32px;
   display: grid;
@@ -397,22 +395,22 @@ onMounted(() => {
   transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.unidades__acao-btn:hover:not(:disabled) {
+.clientes__acao-btn:hover:not(:disabled) {
   background: var(--bg-surface-sunken);
   color: var(--text-primary);
 }
 
-.unidades__acao-btn--perigo:hover:not(:disabled) {
+.clientes__acao-btn--perigo:hover:not(:disabled) {
   border-color: var(--status-critical);
   color: var(--text-critical);
 }
 
-.unidades__acao-btn:disabled {
+.clientes__acao-btn:disabled {
   opacity: 0.6;
   cursor: default;
 }
 
-.unidades__paginacao {
+.clientes__paginacao {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -421,24 +419,24 @@ onMounted(() => {
   border-top: 1px solid var(--border-hairline);
 }
 
-.unidades__total {
+.clientes__total {
   font-size: 12.5px;
   color: var(--text-muted);
 }
 
-.unidades__paginacao-controles {
+.clientes__paginacao-controles {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.unidades__pagina-atual {
+.clientes__pagina-atual {
   font-size: 12.5px;
   color: var(--text-secondary);
   white-space: nowrap;
 }
 
-.unidades__pagina-btn {
+.clientes__pagina-btn {
   width: 30px;
   height: 30px;
   display: grid;
@@ -450,72 +448,72 @@ onMounted(() => {
   transition: background-color 0.15s ease;
 }
 
-.unidades__pagina-btn:hover:not(:disabled) {
+.clientes__pagina-btn:hover:not(:disabled) {
   background: var(--bg-surface-sunken);
 }
 
-.unidades__pagina-btn:disabled {
+.clientes__pagina-btn:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
 @media (max-width: 720px) {
-  .unidades {
+  .clientes {
     padding: 16px 16px 32px;
   }
 
-  .unidades__toolbar {
+  .clientes__toolbar {
     padding: 14px 16px;
   }
 
-  .unidades__filtro {
+  .clientes__filtro {
     width: 100%;
   }
 
-  .unidades__campo {
+  .clientes__campo {
     flex: 1;
     min-width: 0;
   }
 
-  .unidades__campo input,
-  .unidades__campo select {
+  .clientes__campo input,
+  .clientes__campo select {
     width: 100%;
   }
 
-  .unidades__toolbar > .btn--primary {
+  .clientes__toolbar > .btn--primary {
     width: 100%;
     justify-content: center;
   }
 
-  .unidades__table thead {
+  .clientes__table thead {
     display: none;
   }
 
-  .unidades__table,
-  .unidades__table tbody,
-  .unidades__table tr,
-  .unidades__table td {
+  .clientes__table,
+  .clientes__table tbody,
+  .clientes__table tr,
+  .clientes__table td {
     display: block;
     width: 100%;
   }
 
-  .unidades__table tbody tr {
+  .clientes__table tbody tr {
     padding: 14px 16px;
   }
 
-  .unidades__table tbody tr + tr {
+  .clientes__table tbody tr + tr {
     border-top: 1px solid var(--border-hairline);
   }
 
-  .unidades__table tbody tr + tr td {
+  .clientes__table tbody tr + tr td {
     border-top: none;
   }
 
-  .unidades__table td {
+  .clientes__table td {
     padding: 4px 0;
   }
 
-  .unidades__table td[data-label]::before {
+  .clientes__table td[data-label]::before {
     content: attr(data-label);
     display: block;
     font-size: 11px;
@@ -526,15 +524,15 @@ onMounted(() => {
     margin-bottom: 2px;
   }
 
-  .unidades__col-acoes {
+  .clientes__col-acoes {
     padding-top: 10px;
   }
 
-  .unidades__acoes {
+  .clientes__acoes {
     justify-content: flex-end;
   }
 
-  .unidades__paginacao {
+  .clientes__paginacao {
     flex-wrap: wrap;
     justify-content: center;
     text-align: center;

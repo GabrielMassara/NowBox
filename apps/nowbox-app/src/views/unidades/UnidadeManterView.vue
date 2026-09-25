@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
 import { ApiError } from '../../lib/http'
+import { mascaraCep, mascaraCnpj } from '../../lib/mascaras'
 import { estadoService } from '../../services/estado.service'
 import { unidadeService } from '../../services/unidade.service'
 import type { EstadoEntity } from '../../types/api'
@@ -51,8 +52,8 @@ async function carregarUnidade(id: string) {
     const unidade = await unidadeService.buscarPorId(id)
     form.idEstado = unidade.estado.id
     form.nome = unidade.nome
-    form.cnpj = unidade.cnpj
-    form.cep = unidade.cep
+    form.cnpj = mascaraCnpj(unidade.cnpj)
+    form.cep = mascaraCep(unidade.cep)
     form.cidade = unidade.cidade
     form.bairro = unidade.bairro
     form.endereco = unidade.endereco
@@ -148,6 +149,7 @@ async function onSubmit() {
               type="text"
               inputmode="numeric"
               maxlength="18"
+              @input="form.cnpj = mascaraCnpj(form.cnpj)"
               pattern="\D*(\d\D*){14}"
               title="Informe os 14 dígitos do CNPJ"
               placeholder="00.000.000/0000-00"
@@ -165,6 +167,7 @@ async function onSubmit() {
               type="text"
               inputmode="numeric"
               maxlength="9"
+              @input="form.cep = mascaraCep(form.cep)"
               pattern="\D*(\d\D*){8}"
               title="Informe os 8 dígitos do CEP"
               placeholder="00000-000"

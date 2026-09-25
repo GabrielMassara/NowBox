@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
 import { ApiError } from '../../lib/http'
+import { mascaraCpf } from '../../lib/mascaras'
 import { usuarioService } from '../../services/usuario.service'
 
 const route = useRoute()
@@ -25,7 +26,7 @@ async function carregarUsuario(id: string) {
     const usuario = await usuarioService.buscarPorId(id)
     form.nome = usuario.nome
     form.email = usuario.email
-    form.cpf = usuario.cpf
+    form.cpf = mascaraCpf(usuario.cpf)
     form.sexo = usuario.sexo
   } catch (e) {
     erro.value = e instanceof ApiError ? e.message : 'Não foi possível carregar o usuário.'
@@ -125,6 +126,7 @@ async function onSubmit() {
               type="text"
               inputmode="numeric"
               maxlength="14"
+              @input="form.cpf = mascaraCpf(form.cpf)"
               pattern="\D*(\d\D*){11}"
               title="Informe os 11 dígitos do CPF"
               placeholder="000.000.000-00"
