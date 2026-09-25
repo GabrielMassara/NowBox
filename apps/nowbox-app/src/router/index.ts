@@ -182,6 +182,24 @@ const router = createRouter({
           meta: { title: 'Editar permissões', subtitle: 'Atualize as operações liberadas para o cargo' },
         },
         {
+          path: 'clientes',
+          name: 'clientes',
+          component: () => import('../views/clientes/ClienteListView.vue'),
+          meta: { title: 'Clientes', subtitle: 'Gerencie os clientes cadastrados' },
+        },
+        {
+          path: 'clientes/novo',
+          name: 'cliente-novo',
+          component: () => import('../views/clientes/ClienteManterView.vue'),
+          meta: { title: 'Novo cliente', subtitle: 'Cadastre um novo cliente' },
+        },
+        {
+          path: 'clientes/:id/editar',
+          name: 'cliente-editar',
+          component: () => import('../views/clientes/ClienteManterView.vue'),
+          meta: { title: 'Editar cliente', subtitle: 'Atualize os dados do cliente' },
+        },
+        {
           path: 'estados',
           name: 'estados',
           component: () => import('../views/estados/EstadoListView.vue'),

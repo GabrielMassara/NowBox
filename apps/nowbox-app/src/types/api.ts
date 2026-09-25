@@ -31,6 +31,50 @@ export interface EstadoEntity {
   uf: string
 }
 
+export interface ClienteResponseDTO {
+  id: string
+  estado: EstadoEntity
+  nome: string
+  profissao: string
+  cpf: string
+  rg: string
+  email: string
+  telefone: string
+  sexo: string
+  nascimento: string
+  endereco: string
+  numero: string
+  complemento?: string
+  bairro: string
+  cep: string
+  cidade: string
+  enderecoCorrespondencia?: boolean
+  senhaTemporariaStatus?: boolean
+  createdAt?: string
+  deletedAt?: string
+}
+
+export interface ClienteCreateDTO {
+  idEstado: string
+  nome: string
+  profissao: string
+  cpf: string
+  rg: string
+  email: string
+  telefone: string
+  sexo: string
+  nascimento: string
+  endereco: string
+  numero: string
+  complemento?: string
+  bairro: string
+  cep: string
+  cidade: string
+  enderecoCorrespondencia: boolean
+  senha: string
+  senhaTemporariaStatus?: boolean
+}
+
 export interface UnidadeEntity {
   id: string
   nome: string

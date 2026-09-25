@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
 import { ApiError } from '../../lib/http'
+import { mascaraCpf } from '../../lib/mascaras'
 import { usuarioService } from '../../services/usuario.service'
 import type { UsuarioResponseDTO } from '../../types/api'
 
@@ -113,6 +114,7 @@ onMounted(carregar)
               type="text"
               inputmode="numeric"
               maxlength="14"
+              @input="filtro.cpf = mascaraCpf(filtro.cpf)"
               placeholder="CPF"
               aria-label="Buscar por CPF"
             />
