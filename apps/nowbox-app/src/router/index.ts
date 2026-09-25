@@ -92,6 +92,24 @@ const router = createRouter({
           meta: { title: 'Editar operação', subtitle: 'Atualize os dados da operação' },
         },
         {
+          path: 'atribuicoes',
+          name: 'atribuicoes',
+          component: () => import('../views/atribuicoes/AtribuicaoListView.vue'),
+          meta: { title: 'Atribuições', subtitle: 'Gerencie os cargos atribuídos aos usuários' },
+        },
+        {
+          path: 'atribuicoes/nova',
+          name: 'atribuicao-nova',
+          component: () => import('../views/atribuicoes/AtribuicaoManterView.vue'),
+          meta: { title: 'Nova atribuição', subtitle: 'Atribua um cargo a um usuário' },
+        },
+        {
+          path: 'atribuicoes/:id/editar',
+          name: 'atribuicao-editar',
+          component: () => import('../views/atribuicoes/AtribuicaoManterView.vue'),
+          meta: { title: 'Editar atribuição', subtitle: 'Atualize os dados da atribuição' },
+        },
+        {
           path: 'usuarios',
           name: 'usuarios',
           component: () => import('../views/usuarios/UsuarioListView.vue'),
