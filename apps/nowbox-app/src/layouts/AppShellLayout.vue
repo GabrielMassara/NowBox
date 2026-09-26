@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppSidebar from '../components/layout/AppSidebar.vue'
 import AppTopbar from '../components/layout/AppTopbar.vue'
@@ -10,21 +10,64 @@ const consultaEstreita = window.matchMedia('(max-width: 1080px)')
 const telaEstreita = ref(consultaEstreita.matches)
 const recolhidaManual = ref(false)
 
-const recolhida = computed(() => recolhidaManual.value || telaEstreita.value)
+const consultaMobile = window.matchMedia('(max-width: 760px)')
+const telaMobile = ref(consultaMobile.matches)
+const menuMobileAberto = ref(false)
+
+const recolhida = computed(() => !telaMobile.value && (recolhidaManual.value || telaEstreita.value))
 
 function aoMudarLargura(evento: MediaQueryListEvent) {
   telaEstreita.value = evento.matches
 }
 
-onMounted(() => consultaEstreita.addEventListener('change', aoMudarLargura))
-onBeforeUnmount(() => consultaEstreita.removeEventListener('change', aoMudarLargura))
+function aoMudarMobile(evento: MediaQueryListEvent) {
+  telaMobile.value = evento.matches
+  if (!evento.matches) menuMobileAberto.value = false
+}
+
+function aoAlternarSidebar() {
+  if (telaMobile.value) menuMobileAberto.value = false
+  else recolhidaManual.value = !recolhidaManual.value
+}
+
+function aoPressionarTecla(evento: KeyboardEvent) {
+  if (evento.key === 'Escape') menuMobileAberto.value = false
+}
+
+watch(() => route.fullPath, () => (menuMobileAberto.value = false))
+
+onMounted(() => {
+  consultaEstreita.addEventListener('change', aoMudarLargura)
+  consultaMobile.addEventListener('change', aoMudarMobile)
+  document.addEventListener('keydown', aoPressionarTecla)
+})
+onBeforeUnmount(() => {
+  consultaEstreita.removeEventListener('change', aoMudarLargura)
+  consultaMobile.removeEventListener('change', aoMudarMobile)
+  document.removeEventListener('keydown', aoPressionarTecla)
+})
 </script>
 
 <template>
   <div class="app-shell" :class="{ 'app-shell--recolhida': recolhida }">
-    <AppSidebar :recolhida="recolhida" @alternar="recolhidaManual = !recolhidaManual" />
+    <AppSidebar
+      :recolhida="recolhida"
+      :mobile="telaMobile"
+      :aberta="menuMobileAberto"
+      @alternar="aoAlternarSidebar"
+    />
+    <div
+      v-if="telaMobile && menuMobileAberto"
+      class="app-shell__backdrop"
+      aria-hidden="true"
+      @click="menuMobileAberto = false"
+    ></div>
     <div class="app-shell__main">
-      <AppTopbar :title="route.meta.title ?? ''" :subtitle="route.meta.subtitle" />
+      <AppTopbar
+        :title="route.meta.title ?? ''"
+        :subtitle="route.meta.subtitle"
+        @abrir-menu="menuMobileAberto = true"
+      />
       <router-view />
     </div>
   </div>
@@ -45,6 +88,13 @@ onBeforeUnmount(() => consultaEstreita.removeEventListener('change', aoMudarLarg
 
 .app-shell__main {
   min-width: 0;
+}
+
+.app-shell__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgb(0 0 0 / 0.45);
 }
 
 @media (max-width: 760px) {
