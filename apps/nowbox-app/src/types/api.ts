@@ -157,6 +157,25 @@ export interface BoxLoteDTO {
   preco: number
 }
 
+export interface AluguelResponseDTO {
+  id: string
+  box: BoxResponseDTO
+  cliente: ClienteResponseDTO
+  valor: number
+  observacao?: string
+  status: boolean
+  createdAt?: string
+  deletedAt?: string
+}
+
+export interface AluguelCreateDTO {
+  idBox: string
+  idCliente: string
+  valor: number
+  observacao?: string
+  status: boolean
+}
+
 export interface PageResponse<T> {
   totalPages: number
   totalElements: number

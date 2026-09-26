@@ -60,7 +60,7 @@ class BoxServiceTest {
         Page<BoxEntity> paginaMock = new PageImpl<>(List.of(entidade));
 
         // Quando chamar findAllByFilter ele retorna o mock paginaMock
-        when(boxRepository.findAllByFilter(idUnidade, "101", true, null)).thenReturn(paginaMock);
+        when(boxRepository.findAllByFilter(idUnidade, "101", true, null, null)).thenReturn(paginaMock);
 
         // chama a funcao listAllByFilter
         Page<BoxResponseDTO> result = boxService.listAllByFilter(null, filtro);
@@ -69,7 +69,31 @@ class BoxServiceTest {
         assertThat(result.getContent().getFirst().getNumero()).isEqualTo("101");
 
         // verifica se ao chamar a findAllByFilter ele passou os mesmos parametros
-        verify(boxRepository).findAllByFilter(idUnidade, "101", true, null);
+        verify(boxRepository).findAllByFilter(idUnidade, "101", true, null, null);
+    }
+
+    @Test
+    @DisplayName("Should list boxes filtered by alugado")
+    void listAllByFilterCase5() {
+        // id da unidade utilizado no filtro
+        UUID idUnidade = UUID.randomUUID();
+        UnidadeEntity unidade = UnidadeEntity.builder().id(idUnidade).nome("Unidade Test").build();
+
+        // inicializa o filtro pedindo apenas boxes liberados que nao estao alugados
+        BoxFilterDTO filtro = BoxFilterDTO.builder().idUnidade(idUnidade).disponivel(true).alugado(false).build();
+
+        // Mock para simular resposta do Repository
+        BoxEntity entidade = BoxEntity.builder().numero("101").disponivel(true).unidade(unidade).build();
+        Page<BoxEntity> paginaMock = new PageImpl<>(List.of(entidade));
+        when(boxRepository.findAllByFilter(idUnidade, null, true, false, null)).thenReturn(paginaMock);
+
+        // chama a funcao listAllByFilter
+        Page<BoxResponseDTO> result = boxService.listAllByFilter(null, filtro);
+
+        assertThat(result.getContent()).hasSize(1);
+
+        // verifica se ao chamar a findAllByFilter ele passou o filtro alugado
+        verify(boxRepository).findAllByFilter(idUnidade, null, true, false, null);
     }
 
     @Test
@@ -84,7 +108,7 @@ class BoxServiceTest {
         Page<BoxEntity> paginaMock = new PageImpl<>(List.of(entidade));
 
         // Quando chamar findAllByFilter ele retorna o mock paginaMock
-        when(boxRepository.findAllByFilter(null, "101", null, null)).thenReturn(paginaMock);
+        when(boxRepository.findAllByFilter(null, "101", null, null, null)).thenReturn(paginaMock);
 
         // chama a funcao listAllByFilter
         Page<BoxResponseDTO> result = boxService.listAllByFilter(null, filtro);
@@ -93,7 +117,7 @@ class BoxServiceTest {
         assertThat(result.getContent().getFirst().getNumero()).isEqualTo("101");
 
         // verifica se ao chamar a findAllByFilter ele passou os mesmos parametros
-        verify(boxRepository).findAllByFilter(null, "101", null, null);
+        verify(boxRepository).findAllByFilter(null, "101", null, null, null);
     }
 
     @Test
@@ -106,7 +130,7 @@ class BoxServiceTest {
         Page<BoxEntity> paginaMock = new PageImpl<>(List.of(entidade1, entidade2));
 
         // Quando chamar findAllByFilter ele retorna o mock paginaMock
-        when(boxRepository.findAllByFilter(null, null, null, null)).thenReturn(paginaMock);
+        when(boxRepository.findAllByFilter(null, null, null, null, null)).thenReturn(paginaMock);
 
         // chama a funcao listAllByFilter passando filtro nulo
         Page<BoxResponseDTO> result = boxService.listAllByFilter(null, null);
@@ -114,7 +138,7 @@ class BoxServiceTest {
         assertThat(result.getContent()).hasSize(2);
 
         // verifica se ao chamar a findAllByFilter ele passou todos os parametros nulos
-        verify(boxRepository).findAllByFilter(null, null, null, null);
+        verify(boxRepository).findAllByFilter(null, null, null, null, null);
     }
 
     @Test
@@ -127,7 +151,7 @@ class BoxServiceTest {
         Page<BoxEntity> paginaMock = Page.empty();
 
         // Quando chamar findAllByFilter ele retorna o mock paginaMock
-        when(boxRepository.findAllByFilter(null, "Box Inexistente", null, null)).thenReturn(paginaMock);
+        when(boxRepository.findAllByFilter(null, "Box Inexistente", null, null, null)).thenReturn(paginaMock);
 
         // chama a funcao listAllByFilter
         Page<BoxResponseDTO> result = boxService.listAllByFilter(null, filtro);
@@ -136,7 +160,7 @@ class BoxServiceTest {
         assertThat(result.getContent()).isEmpty();
 
         // verifica se ao chamar a findAllByFilter ele passou os mesmos parametros
-        verify(boxRepository).findAllByFilter(null, "Box Inexistente", null, null);
+        verify(boxRepository).findAllByFilter(null, "Box Inexistente", null, null, null);
     }
 
     @Test

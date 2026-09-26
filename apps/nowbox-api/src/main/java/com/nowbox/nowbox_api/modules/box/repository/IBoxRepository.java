@@ -22,10 +22,14 @@ public interface IBoxRepository extends JpaRepository<BoxEntity, UUID> {
             AND (:idUnidade IS NULL OR b.unidade.id = :idUnidade)
             AND (:numero IS NULL OR b.numero = :numero)
             AND (:disponivel IS NULL OR b.disponivel = :disponivel)
+            AND (:alugado IS NULL
+                 OR (:alugado = TRUE AND EXISTS (SELECT a.id FROM AluguelEntity a WHERE a.box = b AND a.status = TRUE AND a.deletedAt IS NULL))
+                 OR (:alugado = FALSE AND NOT EXISTS (SELECT a.id FROM AluguelEntity a WHERE a.box = b AND a.status = TRUE AND a.deletedAt IS NULL)))
             """)
     Page<BoxEntity> findAllByFilter(@Param("idUnidade") UUID idUnidade,
                                      @Param("numero") String numero,
                                      @Param("disponivel") Boolean disponivel,
+                                     @Param("alugado") Boolean alugado,
                                      Pageable pageable);
 
     Optional<BoxEntity> findByIdAndDeletedAtIsNull(UUID id);

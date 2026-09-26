@@ -1,6 +1,7 @@
 package com.nowbox.nowbox_api.modules.aluguel.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nowbox.nowbox_api.common.exception.ConflitoException;
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
 import com.nowbox.nowbox_api.modules.aluguel.dto.AluguelCreateDTO;
 import com.nowbox.nowbox_api.modules.aluguel.dto.AluguelResponseDTO;
@@ -152,6 +153,45 @@ class AluguelControllerTest {
 
         // verifica se o service foi chamado com os dados corretos
         verify(aluguelService).create(any(AluguelCreateDTO.class));
+    }
+
+    @Test
+    @DisplayName("Should return status 409 when creating an aluguel for a box that already has an active one")
+    void createCase3() throws Exception {
+        // dados para criacao de um aluguel ativo
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(UUID.randomUUID()).idCliente(UUID.randomUUID()).status(true).build();
+
+        // Mock para simular que o service lanca excecao pois o box ja tem um aluguel ativo
+        when(aluguelService.create(any(AluguelCreateDTO.class))).thenThrow(new ConflitoException("O box já possui um aluguel ativo"));
+
+        // chama o endpoint POST /v1/aluguel e verifica se retorna 409
+        mockMvc.perform(post("/v1/aluguel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(aluguel)))
+                .andExpect(status().isConflict());
+
+        // verifica se o service foi chamado com os dados corretos
+        verify(aluguelService).create(any(AluguelCreateDTO.class));
+    }
+
+    @Test
+    @DisplayName("Should return status 409 when updating an aluguel for a box that already has another active one")
+    void updateCase3() throws Exception {
+        // id e dados para atualizacao de um aluguel ativo
+        UUID id = UUID.randomUUID();
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(UUID.randomUUID()).idCliente(UUID.randomUUID()).status(true).build();
+
+        // Mock para simular que o service lanca excecao pois o box ja tem outro aluguel ativo
+        when(aluguelService.update(any(AluguelCreateDTO.class), eq(id))).thenThrow(new ConflitoException("O box já possui um aluguel ativo"));
+
+        // chama o endpoint PUT /v1/aluguel/{id} e verifica se retorna 409
+        mockMvc.perform(put("/v1/aluguel/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(aluguel)))
+                .andExpect(status().isConflict());
+
+        // verifica se o service foi chamado com o id e os dados corretos
+        verify(aluguelService).update(any(AluguelCreateDTO.class), eq(id));
     }
 
     @Test

@@ -41,6 +41,7 @@ public class BoxService {
         UUID idUnidade = null;
         String numero = null;
         Boolean disponivel = null;
+        Boolean alugado = null;
 
         if(filtro != null) {
             if(StringUtils.hasText(String.valueOf(filtro.getIdUnidade()))) {
@@ -52,9 +53,12 @@ public class BoxService {
             if(filtro.getDisponivel() != null) {
                 disponivel = filtro.getDisponivel();
             }
+            if(filtro.getAlugado() != null) {
+                alugado = filtro.getAlugado();
+            }
         }
 
-        return boxRepository.findAllByFilter(idUnidade, numero, disponivel, pageable).map(this::toResponseDTO);
+        return boxRepository.findAllByFilter(idUnidade, numero, disponivel, alugado, pageable).map(this::toResponseDTO);
     }
 
     public BoxResponseDTO find(Pageable page, UUID id) throws NaoEncontradoException {
