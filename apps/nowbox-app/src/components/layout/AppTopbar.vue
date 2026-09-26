@@ -6,6 +6,7 @@ import { authStore } from '../../stores/auth'
 import { unidadeStore } from '../../stores/unidade'
 
 defineProps<{ title: string; subtitle?: string }>()
+defineEmits<{ 'abrir-menu': [] }>()
 
 const router = useRouter()
 const menuAberto = ref(false)
@@ -42,6 +43,15 @@ function sair() {
 
 <template>
   <header class="topbar">
+    <button
+      type="button"
+      class="topbar__menu-btn"
+      aria-label="Abrir menu"
+      @click="$emit('abrir-menu')"
+    >
+      <AppIcon name="menu" :size="20" />
+    </button>
+
     <div class="topbar__title">
       <h1>{{ title }}</h1>
       <p v-if="subtitle">{{ subtitle }}</p>
@@ -92,6 +102,23 @@ function sair() {
   background: color-mix(in srgb, var(--bg-page) 88%, transparent);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border-hairline);
+}
+
+.topbar__menu-btn {
+  display: none;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--border-hairline);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.topbar__title {
+  min-width: 0;
 }
 
 .topbar__title h1 {
@@ -262,6 +289,26 @@ function sair() {
   .topbar__search,
   .topbar__user-info {
     display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .topbar__menu-btn {
+    display: grid;
+  }
+
+  .topbar__title h1 {
+    font-size: 17px;
+  }
+
+  .topbar__actions {
+    flex: none;
+    gap: 10px;
   }
 }
 </style>

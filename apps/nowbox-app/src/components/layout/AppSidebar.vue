@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../AppIcon.vue'
 import logo from '../../assets/logo.svg'
 import { menuStore } from '../../stores/menu'
 
-defineProps<{ recolhida?: boolean }>()
+defineProps<{ recolhida?: boolean; mobile?: boolean; aberta?: boolean }>()
 defineEmits<{ alternar: [] }>()
 
 interface NavItem {
@@ -28,12 +28,13 @@ const iconesPorRota: Record<string, string> = {
   '/sessoes': 'folder',
   '/cargos': 'tag',
   '/permissoes': 'shield',
-  '/atribuicoes': 'clipboard-check',
+  '/atribuicoes': 'person-vcard',
   '/usuarios': 'user-circle',
-  '/unidades': 'building',
-  '/boxes': 'box',
+  '/unidades': 'mdi-apps',
+  '/boxes': 'mdi-hexagon-outline',
   '/alugueis': 'bag',
   '/clientes': 'users',
+  '/logs': 'mdi-json',
 }
 
 const route = useRoute()
@@ -55,6 +56,33 @@ const groups = computed<NavGroup[]>(() => [
   })),
 ])
 
+const CHAVE_SESSOES_FECHADAS = 'nowbox:sidebar:sessoes-fechadas'
+
+const lerSessoesFechadas = (): string[] => {
+  try {
+    const salvo = JSON.parse(localStorage.getItem(CHAVE_SESSOES_FECHADAS) ?? '[]')
+    return Array.isArray(salvo) ? salvo.filter((s) => typeof s === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+const sessoesFechadas = ref(new Set(lerSessoesFechadas()))
+
+const sessaoAberta = (group: NavGroup) => !group.title || !sessoesFechadas.value.has(group.title)
+
+const alternarSessao = (group: NavGroup) => {
+  if (!group.title) return
+  const proximo = new Set(sessoesFechadas.value)
+  if (!proximo.delete(group.title)) proximo.add(group.title)
+  sessoesFechadas.value = proximo
+  try {
+    localStorage.setItem(CHAVE_SESSOES_FECHADAS, JSON.stringify([...proximo]))
+  } catch {
+    // sem armazenamento disponível: o estado vale só para esta visita
+  }
+}
+
 const estaAtivo = (item: NavItem) => {
   if (item.to === undefined) return false
   if (item.to === '/') return route.path === '/'
@@ -65,26 +93,45 @@ onMounted(() => menuStore.carregar())
 </script>
 
 <template>
-  <aside class="sidebar" :class="{ 'sidebar--recolhida': recolhida }">
+  <aside
+    class="sidebar"
+    :class="{ 'sidebar--recolhida': recolhida, 'sidebar--mobile': mobile, 'sidebar--aberta': aberta }"
+  >
     <div class="sidebar__brand">
       <button
         type="button"
         class="sidebar__toggle"
-        :aria-label="recolhida ? 'Expandir menu' : 'Recolher menu'"
+        :aria-label="mobile ? 'Fechar menu' : recolhida ? 'Expandir menu' : 'Recolher menu'"
         @click="$emit('alternar')"
       >
-        <AppIcon name="menu" :size="20" />
+        <AppIcon :name="mobile ? 'close' : 'menu'" :size="20" />
       </button>
       <img :src="logo" alt="NowBox" class="sidebar__logo" />
     </div>
 
     <nav class="sidebar__nav scroll-thin">
       <div v-for="(group, i) in groups" :key="group.title ?? i" class="sidebar__group">
-        <p v-if="group.title" class="sidebar__group-title">{{ group.title }}</p>
+        <button
+          v-if="group.title"
+          type="button"
+          class="sidebar__group-title"
+          :aria-expanded="sessaoAberta(group)"
+          :title="sessaoAberta(group) ? 'Ocultar sessão' : 'Mostrar sessão'"
+          @click="alternarSessao(group)"
+        >
+          <span class="sidebar__group-name">{{ group.title }}</span>
+          <AppIcon
+            class="sidebar__group-chevron"
+            :class="{ 'sidebar__group-chevron--fechada': !sessaoAberta(group) }"
+            name="chevron-down"
+            :size="14"
+          />
+        </button>
 
         <component
           :is="item.to ? 'router-link' : 'a'"
           v-for="item in group.items"
+          v-show="recolhida || sessaoAberta(group)"
           :key="item.label"
           :to="item.to"
           :href="item.to ? undefined : '#'"
@@ -161,13 +208,36 @@ onMounted(() => menuStore.carregar())
 }
 
 .sidebar__group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: inherit;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.07em;
   text-transform: uppercase;
+  text-align: left;
   color: var(--text-muted);
   padding: 0 12px;
   margin-bottom: 8px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.sidebar__group-title:hover {
+  color: var(--text-primary);
+}
+
+.sidebar__group-chevron {
+  flex: none;
+  transition: transform 0.15s ease;
+}
+
+.sidebar__group-chevron--fechada {
+  transform: rotate(-90deg);
 }
 
 .sidebar__item {
@@ -203,7 +273,7 @@ onMounted(() => menuStore.carregar())
   box-shadow: var(--shadow-card);
   margin-left: calc(var(--nav-inline) * -1);
   padding-left: calc(var(--nav-inline) + 12px);
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  border-radius: 0 999px 999px 0;
 }
 
 .sidebar__item--active .sidebar__icon {
@@ -231,6 +301,8 @@ onMounted(() => menuStore.carregar())
   position: static;
 }
 
+.sidebar--recolhida .sidebar__group-name,
+.sidebar--recolhida .sidebar__group-chevron,
 .sidebar--recolhida .sidebar__logo,
 .sidebar--recolhida .sidebar__label,
 .sidebar--recolhida .sidebar__aviso {
@@ -242,12 +314,14 @@ onMounted(() => menuStore.carregar())
 }
 
 .sidebar--recolhida .sidebar__group-title {
+  display: block;
   height: 1px;
   margin: 0 12px 10px;
   padding: 0;
   overflow: hidden;
   text-indent: -999px;
   background: var(--border-hairline);
+  pointer-events: none;
 }
 
 .sidebar--recolhida .sidebar__item {
@@ -261,7 +335,21 @@ onMounted(() => menuStore.carregar())
 
 @media (max-width: 760px) {
   .sidebar {
-    display: none;
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 30;
+    width: min(288px, 84vw);
+    height: 100dvh;
+    box-shadow: var(--shadow-card);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 0.22s ease, visibility 0s linear 0.22s;
+  }
+
+  .sidebar--aberta {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.22s ease;
   }
 }
 </style>
