@@ -224,6 +224,24 @@ const router = createRouter({
           meta: { title: 'Editar box', subtitle: 'Atualize os dados do box' },
         },
         {
+          path: 'alugueis',
+          name: 'alugueis',
+          component: () => import('../views/alugueis/AluguelListView.vue'),
+          meta: { title: 'Aluguéis', subtitle: 'Gerencie os aluguéis dos boxes da unidade selecionada' },
+        },
+        {
+          path: 'alugueis/novo',
+          name: 'aluguel-novo',
+          component: () => import('../views/alugueis/AluguelManterView.vue'),
+          meta: { title: 'Novo aluguel', subtitle: 'Registre o aluguel de um box para um cliente' },
+        },
+        {
+          path: 'alugueis/:id/editar',
+          name: 'aluguel-editar',
+          component: () => import('../views/alugueis/AluguelManterView.vue'),
+          meta: { title: 'Editar aluguel', subtitle: 'Atualize os dados do aluguel' },
+        },
+        {
           path: 'estados',
           name: 'estados',
           component: () => import('../views/estados/EstadoListView.vue'),

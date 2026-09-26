@@ -1,5 +1,6 @@
 package com.nowbox.nowbox_api.common.handler;
 
+import com.nowbox.nowbox_api.common.exception.ConflitoException;
 import com.nowbox.nowbox_api.common.exception.CredenciaisInvalidasException;
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
 import com.nowbox.nowbox_api.common.exception.RequisicaoInvalidaException;
@@ -15,6 +16,11 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(NaoEncontradoException.class)
     private ResponseEntity<String> estadoNotFoundHandler(NaoEncontradoException exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(exception.getMessage());
+    }
+
+    @ExceptionHandler(ConflitoException.class)
+    private ResponseEntity<String> conflitoHandler(ConflitoException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(exception.getMessage());
     }
 
     @ExceptionHandler(RequisicaoInvalidaException.class)

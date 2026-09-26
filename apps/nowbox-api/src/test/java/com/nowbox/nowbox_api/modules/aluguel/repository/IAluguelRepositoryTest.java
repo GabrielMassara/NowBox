@@ -164,6 +164,65 @@ class IAluguelRepositoryTest {
         assertThat(result).isEmpty();
     }
 
+    @Test
+    @DisplayName("Should find an active aluguel for the box")
+    void existsByBoxIdAndStatusTrueAndDeletedAtIsNullCase1() {
+        List<AluguelEntity> alugueis = this.createScenario();
+
+        // o aluguel 1 e ativo no box 1
+        boolean result = aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNull(alugueis.get(0).getBox().getId());
+
+        assertThat(result).isTrue();
+    }
+
+    @Test
+    @DisplayName("Should not find an active aluguel when the only one of the box is inactive")
+    void existsByBoxIdAndStatusTrueAndDeletedAtIsNullCase2() {
+        List<AluguelEntity> alugueis = this.createScenario();
+
+        // o aluguel 3 e inativo no box 3
+        boolean result = aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNull(alugueis.get(2).getBox().getId());
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should not find an active aluguel when it is soft deleted")
+    void existsByBoxIdAndStatusTrueAndDeletedAtIsNullCase3() {
+        List<AluguelEntity> alugueis = this.createScenario();
+        AluguelEntity aluguel1 = alugueis.get(0);
+        aluguel1.setDeletedAt(LocalDateTime.now());
+        this.em.persist(aluguel1);
+
+        boolean result = aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNull(aluguel1.getBox().getId());
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should ignore the informed aluguel when looking for another active one")
+    void existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNotCase1() {
+        List<AluguelEntity> alugueis = this.createScenario();
+        AluguelEntity aluguel1 = alugueis.get(0);
+
+        // o unico aluguel ativo do box 1 e o proprio aluguel 1
+        boolean result = aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNot(aluguel1.getBox().getId(), aluguel1.getId());
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should find another active aluguel of the box besides the informed one")
+    void existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNotCase2() {
+        List<AluguelEntity> alugueis = this.createScenario();
+        AluguelEntity aluguel1 = alugueis.get(0);
+
+        // um aluguel diferente do aluguel 1 e considerado outro aluguel ativo do box 1
+        boolean result = aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNot(aluguel1.getBox().getId(), UUID.randomUUID());
+
+        assertThat(result).isTrue();
+    }
+
     private List<AluguelEntity> createScenario() {
         // Cadastra um estado e uma unidade de teste
         EstadoEntity estado = EstadoEntity.builder().nome("Estado").uf("XX").build();

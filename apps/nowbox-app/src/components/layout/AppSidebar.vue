@@ -43,7 +43,7 @@ const rotasRegistradas = new Set(router.getRoutes().map((r) => r.path))
 
 const groups = computed<NavGroup[]>(() => [
   {
-    items: [{ label: 'Dashboard', icon: 'dashboard', to: '/' }],
+    items: [{ label: 'Dashboard', icon: 'dashboard-dots', to: '/' }],
   },
   ...menuStore.state.sessoes.map((sessao) => ({
     title: sessao.nome,

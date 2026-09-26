@@ -28,4 +28,10 @@ public interface IAluguelRepository extends JpaRepository<AluguelEntity, UUID> {
 
     Optional<AluguelEntity> findByIdAndDeletedAtIsNull(UUID id);
 
+    // Verifica se o box ja possui algum aluguel ativo
+    boolean existsByBoxIdAndStatusTrueAndDeletedAtIsNull(UUID idBox);
+
+    // Verifica se o box possui algum aluguel ativo alem do informado
+    boolean existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNot(UUID idBox, UUID id);
+
 }

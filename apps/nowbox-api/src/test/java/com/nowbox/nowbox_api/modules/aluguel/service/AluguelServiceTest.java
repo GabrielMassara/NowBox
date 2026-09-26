@@ -1,5 +1,6 @@
 package com.nowbox.nowbox_api.modules.aluguel.service;
 
+import com.nowbox.nowbox_api.common.exception.ConflitoException;
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
 import com.nowbox.nowbox_api.modules.aluguel.dto.AluguelCreateDTO;
 import com.nowbox.nowbox_api.modules.aluguel.dto.AluguelFilterDTO;
@@ -284,6 +285,104 @@ class AluguelServiceTest {
     }
 
     @Test
+    @DisplayName("Should throw exception when creating an active aluguel for a box that already has an active one")
+    void createCase4() {
+        // ids do box e do cliente utilizados na criacao
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+        BoxEntity box = BoxEntity.builder().id(idBox).numero("101").build();
+        ClienteEntity cliente = ClienteEntity.builder().id(idCliente).nome("Cliente").build();
+
+        // dados para criacao de um aluguel ativo
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(150.00)).status(true).build();
+
+        // Mock para simular que o box e o cliente existem e que o box ja tem um aluguel ativo
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
+        when(aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNull(idBox)).thenReturn(true);
+
+        // chama a funcao create e verifica se lanca a excecao esperada
+        assertThrows(ConflitoException.class, () -> aluguelService.create(aluguel));
+
+        // verifica se nunca chegou a salvar, ja que o box tem um aluguel ativo
+        verify(aluguelRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should create an inactive aluguel even when the box already has an active one")
+    void createCase5() {
+        // ids do box e do cliente utilizados na criacao
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+        BoxEntity box = BoxEntity.builder().id(idBox).numero("101").build();
+        ClienteEntity cliente = ClienteEntity.builder().id(idCliente).nome("Cliente").build();
+
+        // dados para criacao de um aluguel inativo
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(150.00)).status(false).build();
+
+        // Mock para simular que o box e o cliente existem
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
+        when(aluguelRepository.save(any(AluguelEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // chama a funcao create
+        AluguelResponseDTO result = aluguelService.create(aluguel);
+
+        assertThat(result.getStatus()).isFalse();
+
+        // verifica se nao precisou consultar os alugueis ativos, ja que o novo aluguel e inativo
+        verify(aluguelRepository, never()).existsByBoxIdAndStatusTrueAndDeletedAtIsNull(any());
+        verify(aluguelRepository).save(any(AluguelEntity.class));
+    }
+
+    @Test
+    @DisplayName("Should throw exception when creating an active aluguel for a blocked box")
+    void createCase6() {
+        // ids do box e do cliente utilizados na criacao
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+        BoxEntity box = BoxEntity.builder().id(idBox).numero("101").disponivel(false).build();
+        ClienteEntity cliente = ClienteEntity.builder().id(idCliente).nome("Cliente").build();
+
+        // dados para criacao de um aluguel ativo
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(150.00)).status(true).build();
+
+        // Mock para simular que o box esta bloqueado e o cliente existe
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
+
+        // chama a funcao create e verifica se lanca a excecao esperada
+        assertThrows(ConflitoException.class, () -> aluguelService.create(aluguel));
+
+        // verifica se nunca chegou a salvar, ja que o box esta bloqueado
+        verify(aluguelRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should create an inactive aluguel even when the box is blocked")
+    void createCase7() {
+        // ids do box e do cliente utilizados na criacao
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+        BoxEntity box = BoxEntity.builder().id(idBox).numero("101").disponivel(false).build();
+        ClienteEntity cliente = ClienteEntity.builder().id(idCliente).nome("Cliente").build();
+
+        // dados para criacao de um aluguel inativo (registro historico)
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(150.00)).status(false).build();
+
+        // Mock para simular que o box esta bloqueado e o cliente existe
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
+        when(aluguelRepository.save(any(AluguelEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // chama a funcao create
+        AluguelResponseDTO result = aluguelService.create(aluguel);
+
+        assertThat(result.getStatus()).isFalse();
+        verify(aluguelRepository).save(any(AluguelEntity.class));
+    }
+
+    @Test
     @DisplayName("Should update aluguel when id, box and cliente exist")
     void updateCase1() {
         // ids do aluguel, do box e do cliente utilizados na atualizacao
@@ -326,6 +425,136 @@ class AluguelServiceTest {
 
         // verifica se salvou a entidade com os dados atualizados
         verify(aluguelRepository).save(argThat(e -> e.getId().equals(id) && e.getBox().equals(box) && e.getCliente().equals(cliente)));
+    }
+
+    @Test
+    @DisplayName("Should throw exception when updating an aluguel to active while the box has another active one")
+    void updateCase5() {
+        // ids do aluguel, do box e do cliente utilizados na atualizacao
+        UUID id = UUID.randomUUID();
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+
+        // dados para atualizacao com o aluguel ativo
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(200.00)).status(true).build();
+
+        // Mock para simular que o aluguel, o box e o cliente existem
+        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).status(false).createdAt(LocalDateTime.now()).build();
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(BoxEntity.builder().id(idBox).build()));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(ClienteEntity.builder().id(idCliente).build()));
+
+        // Mock para simular que o box ja tem outro aluguel ativo
+        when(aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNot(idBox, id)).thenReturn(true);
+
+        // chama a funcao update e verifica se lanca a excecao esperada
+        assertThrows(ConflitoException.class, () -> aluguelService.update(aluguel, id));
+
+        // verifica se nunca chegou a salvar, ja que o box tem outro aluguel ativo
+        verify(aluguelRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should update an active aluguel when no other active one exists for the box")
+    void updateCase6() {
+        // ids do aluguel, do box e do cliente utilizados na atualizacao
+        UUID id = UUID.randomUUID();
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+
+        // dados para atualizacao mantendo o aluguel ativo
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(200.00)).status(true).build();
+
+        // Mock para simular que o aluguel, o box e o cliente existem
+        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).status(true).createdAt(LocalDateTime.now()).build();
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(BoxEntity.builder().id(idBox).build()));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(ClienteEntity.builder().id(idCliente).build()));
+        when(aluguelRepository.save(any(AluguelEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // chama a funcao update
+        AluguelResponseDTO result = aluguelService.update(aluguel, id);
+
+        assertThat(result.getStatus()).isTrue();
+
+        // verifica se procurou outro aluguel ativo desconsiderando o proprio aluguel
+        verify(aluguelRepository).existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNot(idBox, id);
+    }
+
+    @Test
+    @DisplayName("Should throw exception when moving an active aluguel to a blocked box")
+    void updateCase7() {
+        // ids do aluguel, do box e do cliente utilizados na atualizacao
+        UUID id = UUID.randomUUID();
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+
+        // dados para atualizacao mantendo o aluguel ativo em outro box
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(200.00)).status(true).build();
+
+        // Mock para simular que o aluguel esta ativo em outro box e que o novo box esta bloqueado
+        BoxEntity boxAntigo = BoxEntity.builder().id(UUID.randomUUID()).build();
+        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).box(boxAntigo).status(true).createdAt(LocalDateTime.now()).build();
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(BoxEntity.builder().id(idBox).disponivel(false).build()));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(ClienteEntity.builder().id(idCliente).build()));
+
+        // chama a funcao update e verifica se lanca a excecao esperada
+        assertThrows(ConflitoException.class, () -> aluguelService.update(aluguel, id));
+
+        // verifica se nunca chegou a salvar, ja que o box esta bloqueado
+        verify(aluguelRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw exception when reactivating an aluguel of a blocked box")
+    void updateCase8() {
+        // ids do aluguel, do box e do cliente utilizados na atualizacao
+        UUID id = UUID.randomUUID();
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+
+        // dados para atualizacao reativando o aluguel no mesmo box
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(200.00)).status(true).build();
+
+        // Mock para simular que o aluguel esta inativo e que o box esta bloqueado
+        BoxEntity boxBloqueado = BoxEntity.builder().id(idBox).disponivel(false).build();
+        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).box(boxBloqueado).status(false).createdAt(LocalDateTime.now()).build();
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(boxBloqueado));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(ClienteEntity.builder().id(idCliente).build()));
+
+        // chama a funcao update e verifica se lanca a excecao esperada
+        assertThrows(ConflitoException.class, () -> aluguelService.update(aluguel, id));
+
+        // verifica se nunca chegou a salvar, ja que o box esta bloqueado
+        verify(aluguelRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should update an aluguel that is already active in a box that was blocked afterwards")
+    void updateCase9() {
+        // ids do aluguel, do box e do cliente utilizados na atualizacao
+        UUID id = UUID.randomUUID();
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+
+        // dados para atualizacao mantendo o aluguel ativo no mesmo box
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(220.00)).status(true).build();
+
+        // Mock para simular que o aluguel ja esta ativo no box, que foi bloqueado depois
+        BoxEntity boxBloqueado = BoxEntity.builder().id(idBox).disponivel(false).build();
+        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).box(boxBloqueado).status(true).createdAt(LocalDateTime.now()).build();
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(boxBloqueado));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(ClienteEntity.builder().id(idCliente).build()));
+        when(aluguelRepository.save(any(AluguelEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // chama a funcao update
+        AluguelResponseDTO result = aluguelService.update(aluguel, id);
+
+        assertThat(result.getValor()).isEqualTo(BigDecimal.valueOf(220.00));
+        verify(aluguelRepository).save(any(AluguelEntity.class));
     }
 
     @Test

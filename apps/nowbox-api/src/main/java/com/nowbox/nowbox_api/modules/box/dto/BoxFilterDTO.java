@@ -16,4 +16,6 @@ public class BoxFilterDTO {
     private String numero;
 
     private Boolean disponivel;
+
+    private Boolean alugado;
 }

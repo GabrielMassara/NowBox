@@ -1,5 +1,6 @@
 package com.nowbox.nowbox_api.modules.aluguel.service;
 
+import com.nowbox.nowbox_api.common.exception.ConflitoException;
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
 import com.nowbox.nowbox_api.modules.aluguel.dto.AluguelCreateDTO;
 import com.nowbox.nowbox_api.modules.aluguel.dto.AluguelFilterDTO;
@@ -78,6 +79,16 @@ public class AluguelService {
             throw new NaoEncontradoException("Cliente inválido");
         }
 
+        // Um box bloqueado nao pode ser alugado
+        if(Boolean.TRUE.equals(aluguel.getStatus())) {
+            validarBoxLiberado(box.get());
+        }
+
+        // Um box so pode ter um aluguel ativo por vez
+        if(Boolean.TRUE.equals(aluguel.getStatus()) && aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNull(aluguel.getIdBox())) {
+            throw new ConflitoException("O box já possui um aluguel ativo");
+        }
+
         AluguelEntity created = aluguelRepository.save(AluguelEntity.builder()
                 .box(box.get())
                 .cliente(cliente.get())
@@ -109,6 +120,18 @@ public class AluguelService {
             throw new NaoEncontradoException("Cliente não encontrado");
         }
 
+        // Um box bloqueado nao pode ser alugado. so valida quando o aluguel passa a ficar ativo neste box, para que o bloqueio de um box ja alugado nao impeça editar o aluguel que ja estava ativo nele
+        AluguelEntity atual = existente.get();
+        boolean jaAtivoNoBox = Boolean.TRUE.equals(atual.getStatus()) && atual.getBox() != null && aluguel.getIdBox().equals(atual.getBox().getId());
+        if(Boolean.TRUE.equals(aluguel.getStatus()) && !jaAtivoNoBox) {
+            validarBoxLiberado(box.get());
+        }
+
+        // Um box so pode ter um aluguel ativo por vez, desconsiderando o proprio aluguel
+        if(Boolean.TRUE.equals(aluguel.getStatus()) && aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNot(aluguel.getIdBox(), id)) {
+            throw new ConflitoException("O box já possui um aluguel ativo");
+        }
+
         AluguelEntity updated = aluguelRepository.save(AluguelEntity.builder()
                 .id(id)
                 .box(box.get())
@@ -129,6 +152,13 @@ public class AluguelService {
 
         existente.setDeletedAt(LocalDateTime.now());
         aluguelRepository.save(existente);
+    }
+
+    // Disponivel false indica que o box esta bloqueado para locacao
+    private void validarBoxLiberado(BoxEntity box) {
+        if(Boolean.FALSE.equals(box.getDisponivel())) {
+            throw new ConflitoException("O box está bloqueado para locação");
+        }
     }
 
     private AluguelResponseDTO toResponseDTO(AluguelEntity entidade) {

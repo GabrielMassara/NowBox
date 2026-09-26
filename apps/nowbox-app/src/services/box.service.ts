@@ -5,6 +5,8 @@ export interface BoxFiltro {
   idUnidade: string
   numero?: string
   disponivel?: boolean
+  // true lista só os boxes com aluguel ativo; false, só os que não têm.
+  alugado?: boolean
 }
 
 export const boxService = {
@@ -17,6 +19,7 @@ export const boxService = {
     })
     if (filtro.numero) params.set('numero', filtro.numero)
     if (filtro.disponivel !== undefined) params.set('disponivel', String(filtro.disponivel))
+    if (filtro.alugado !== undefined) params.set('alugado', String(filtro.alugado))
 
     return http.get<PageResponse<BoxResponseDTO>>(`/v1/box?${params}`)
   },

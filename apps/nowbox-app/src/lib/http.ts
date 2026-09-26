@@ -9,6 +9,19 @@ export class ApiError extends Error {
   }
 }
 
+// A API responde os erros de negócio (404, 400, 409) com a mensagem em texto puro e os demais em JSON.
+async function lerMensagemDeErro(response: Response): Promise<string | undefined> {
+  const tipo = response.headers.get('Content-Type') ?? ''
+
+  if (tipo.startsWith('text/plain')) {
+    const texto = (await response.text().catch(() => '')).trim()
+    return texto || undefined
+  }
+
+  const body = await response.json().catch(() => null)
+  return body?.message || undefined
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem(TOKEN_STORAGE_KEY)
   const headers = new Headers(init.headers)
@@ -24,8 +37,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
-    const body = await response.json().catch(() => null)
-    throw new ApiError(response.status, body?.message ?? 'Não foi possível completar a solicitação.')
+    throw new ApiError(response.status, (await lerMensagemDeErro(response)) ?? 'Não foi possível completar a solicitação.')
   }
 
   if (response.status === 204) return undefined as T
