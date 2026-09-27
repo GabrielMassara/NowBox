@@ -1,0 +1,39 @@
+name: nowbox-rabbitmq
+
+x-image: &image rabbitmq:4-management-alpine@sha256:ce634665a8e7262384a793581c20cb8a46343887446eb391b77c814febeca4b2
+
+x-hardening: &hardening
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp]
+
+services:
+  rabbitmq:
+    <<: *hardening
+    image: *image
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${RABBITMQ_AMQP_PORT:-5672}:5672"
+      - "127.0.0.1:${RABBITMQ_CONSOLE_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:?defina RABBITMQ_DEFAULT_USER no .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?defina RABBITMQ_DEFAULT_PASS no .env}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST:-nowbox}
+      RABBITMQ_LOGS: "-"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    pids_limit: 512
+    mem_limit: 1g
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  rabbitmq-data:
