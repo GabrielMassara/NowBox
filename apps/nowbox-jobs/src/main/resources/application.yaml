@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: nowbox-jobs
+server:
+  port: 8081
