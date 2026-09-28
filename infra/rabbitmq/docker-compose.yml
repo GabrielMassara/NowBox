@@ -5,6 +5,7 @@ x-image: &image rabbitmq:4-management-alpine@sha256:ce634665a8e7262384a793581c20
 x-hardening: &hardening
   security_opt: ["no-new-privileges:true"]
   cap_drop: [ALL]
+  cap_add: [CHOWN, SETUID, SETGID]
   read_only: true
   tmpfs: [/tmp]
 
@@ -24,7 +25,7 @@ services:
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: ["CMD", "su-exec", "rabbitmq", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
