@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="contrato_teste" language="java" pageWidth="595" pageHeight="842" columnWidth="515" leftMargin="40" rightMargin="40" topMargin="40" bottomMargin="40">
+	<style name="Base" isDefault="true" forecolor="#0B0B0B" fontName="DejaVu Sans" fontSize="10" pdfEncoding="Identity-H" isPdfEmbedded="true"/>
+	<style name="Secao" style="Base" mode="Opaque" forecolor="#17307F" backcolor="#EEF0FB" vAlign="Middle" isBold="true">
+		<box leftPadding="10">
+			<leftPen lineWidth="3.0" lineColor="#1F3BB3"/>
+		</box>
+	</style>
+
+	<parameter name="nome" class="java.lang.String"/>
+	<parameter name="profissao" class="java.lang.String"/>
+	<parameter name="cpf" class="java.lang.String"/>
+	<parameter name="rg" class="java.lang.String"/>
+	<parameter name="endereco" class="java.lang.String"/>
+	<parameter name="numeroEndereco" class="java.lang.String"/>
+	<parameter name="complemento" class="java.lang.String"/>
+	<parameter name="bairro" class="java.lang.String"/>
+	<parameter name="cep" class="java.lang.String"/>
+	<parameter name="cidade" class="java.lang.String"/>
+	<parameter name="uf" class="java.lang.String"/>
+	<parameter name="telefone" class="java.lang.String"/>
+	<parameter name="email" class="java.lang.String"/>
+	<parameter name="endereco_correspondecia" class="java.lang.String"/>
+	<parameter name="cnpj" class="java.lang.String"/>
+	<parameter name="valor" class="java.lang.String"/>
+	<parameter name="assinatura" class="java.lang.String"/>
+	<parameter name="numero" class="java.lang.String"/>
+
+	<background>
+		<band height="762">
+			<staticText>
+				<reportElement x="0" y="330" width="515" height="160" forecolor="#EEF0FB"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="130" isBold="true"/>
+				</textElement>
+				<text><![CDATA[TESTE]]></text>
+			</staticText>
+		</band>
+	</background>
+
+	<title>
+		<band height="100">
+			<rectangle>
+				<reportElement mode="Opaque" x="0" y="0" width="515" height="62" forecolor="#1F3BB3" backcolor="#1F3BB3"/>
+				<graphicElement>
+					<pen lineWidth="0.0"/>
+				</graphicElement>
+			</rectangle>
+			<image scaleImage="RetainShape" hAlign="Left" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="16" y="11" width="84" height="40"/>
+				<imageExpression><![CDATA["reports/logo-white.png"]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement x="200" y="0" width="299" height="62" forecolor="#FFFFFF"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[CONTRATO DE LOCAÇÃO DE BOX]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="0" y="62" width="515" height="24" forecolor="#B3261E" backcolor="#EEF0FB"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9" isBold="true"/>
+				</textElement>
+				<text><![CDATA[DOCUMENTO DE TESTE — SEM VALIDADE JURÍDICA · Cada empresa deve usar o seu próprio modelo]]></text>
+			</staticText>
+		</band>
+	</title>
+
+	<detail>
+		<band height="560">
+			<staticText>
+				<reportElement style="Secao" positionType="Float" x="0" y="0" width="515" height="22"/>
+				<text><![CDATA[I - LOCATÁRIO (CONTRATANTE)]]></text>
+			</staticText>
+			<textField isStretchWithOverflow="true">
+				<reportElement positionType="Float" x="0" y="26" width="515" height="112"/>
+				<textElement markup="none"/>
+				<textFieldExpression><![CDATA["Nome: " + $P{nome}
++ "\nProfissão: " + $P{profissao}
++ "\nCPF: " + $P{cpf} + "     RG: " + $P{rg}
++ "\nEndereço: " + $P{endereco} + ", nº " + $P{numeroEndereco} + " - Complemento: " + $P{complemento}
++ "\nBairro: " + $P{bairro} + "     CEP: " + $P{cep}
++ "\nCidade/UF: " + $P{cidade} + "/" + $P{uf}
++ "\nTelefone: " + $P{telefone} + "     E-mail: " + $P{email}
++ "\nEndereço de correspondência: " + $P{endereco_correspondecia}]]></textFieldExpression>
+			</textField>
+
+			<staticText>
+				<reportElement style="Secao" positionType="Float" x="0" y="146" width="515" height="22"/>
+				<text><![CDATA[II - LOCADORA]]></text>
+			</staticText>
+			<textField isStretchWithOverflow="true">
+				<reportElement positionType="Float" x="0" y="172" width="515" height="28"/>
+				<textElement markup="none"/>
+				<textFieldExpression><![CDATA["Pessoa jurídica inscrita no CNPJ sob o nº " + $P{cnpj} + ", responsável pela unidade onde se localiza o box objeto deste contrato."]]></textFieldExpression>
+			</textField>
+
+			<staticText>
+				<reportElement style="Secao" positionType="Float" x="0" y="208" width="515" height="22"/>
+				<text><![CDATA[III - OBJETO E VALOR]]></text>
+			</staticText>
+			<textField isStretchWithOverflow="true">
+				<reportElement positionType="Float" x="0" y="234" width="515" height="30"/>
+				<textElement textAlignment="Justified" markup="none"/>
+				<textFieldExpression><![CDATA["A LOCADORA cede ao LOCATÁRIO, em caráter de locação, o box de número " + $P{numero} + ", pelo valor mensal de " + $P{valor} + "."]]></textFieldExpression>
+			</textField>
+
+			<staticText>
+				<reportElement style="Secao" positionType="Float" x="0" y="272" width="515" height="22"/>
+				<text><![CDATA[IV - CLÁUSULAS (EXEMPLO)]]></text>
+			</staticText>
+			<textField isStretchWithOverflow="true">
+				<reportElement positionType="Float" x="0" y="298" width="515" height="150"/>
+				<textElement textAlignment="Justified" markup="none"/>
+				<textFieldExpression><![CDATA["1.1. Este é um contrato de teste, sem qualquer efeito jurídico, criado apenas para demonstrar a geração automática do documento."
++ "\n\n2.1. O LOCATÁRIO pagará à LOCADORA, mensalmente, o valor de " + $P{valor} + " pela locação do box " + $P{numero} + "."
++ "\n\n2.1.1. O valor acima, " + $P{valor} + ", poderá ser reajustado conforme as regras definidas pela LOCADORA no modelo de contrato real."
++ "\n\n3.1. As demais cláusulas devem ser definidas no modelo de contrato de cada empresa."]]></textFieldExpression>
+			</textField>
+
+			<textField isStretchWithOverflow="true">
+				<reportElement positionType="Float" x="0" y="458" width="515" height="20" forecolor="#52514E"/>
+				<textElement textAlignment="Right" markup="none"/>
+				<textFieldExpression><![CDATA[$P{cidade} + "/" + $P{uf} + ", " + $P{assinatura} + "."]]></textFieldExpression>
+			</textField>
+
+			<line>
+				<reportElement positionType="Float" x="20" y="520" width="210" height="1" forecolor="#1F3BB3"/>
+			</line>
+			<line>
+				<reportElement positionType="Float" x="285" y="520" width="210" height="1" forecolor="#1F3BB3"/>
+			</line>
+			<staticText>
+				<reportElement positionType="Float" x="20" y="524" width="210" height="16" forecolor="#52514E"/>
+				<textElement textAlignment="Center">
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[LOCADORA]]></text>
+			</staticText>
+			<textField isStretchWithOverflow="true">
+				<reportElement positionType="Float" x="285" y="524" width="210" height="30" forecolor="#52514E"/>
+				<textElement textAlignment="Center" markup="none">
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA["LOCATÁRIO\n" + $P{nome}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+
+	<pageFooter>
+		<band height="24">
+			<line>
+				<reportElement x="0" y="0" width="515" height="1" forecolor="#DDE3F7"/>
+			</line>
+			<staticText>
+				<reportElement x="0" y="4" width="440" height="16" forecolor="#B3261E"/>
+				<textElement verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[DOCUMENTO DE TESTE — SEM VALIDADE JURÍDICA]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="440" y="4" width="75" height="16" forecolor="#898781"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Página " + $V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageFooter>
+</jasperReport>
