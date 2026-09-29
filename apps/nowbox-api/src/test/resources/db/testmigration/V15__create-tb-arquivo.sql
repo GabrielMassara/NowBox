@@ -1,0 +1,9 @@
+CREATE TABLE tb_arquivo (
+    id UUID DEFAULT RANDOM_UUID() PRIMARY KEY,
+    bucket VARCHAR(100) NOT NULL,
+    chave VARCHAR(500) NOT NULL UNIQUE,
+    nome_original VARCHAR(200) NOT NULL,
+    content_type VARCHAR(100) NOT NULL,
+    tamanho BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

@@ -4,6 +4,8 @@ import com.nowbox.nowbox_api.modules.aluguel.entity.AluguelEntity;
 import com.nowbox.nowbox_api.modules.aluguel.repository.IAluguelRepository;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.box.repository.IBoxRepository;
+import com.nowbox.nowbox_api.modules.contrato.entity.ArquivoAluguelEntity;
+import com.nowbox.nowbox_api.modules.contrato.repository.IArquivoAluguelRepository;
 import com.nowbox.nowbox_api.modules.unidade.entity.UnidadeEntity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -30,6 +32,9 @@ class AcessoUnidadeServiceTest {
 
     @Mock
     private IAluguelRepository aluguelRepository;
+
+    @Mock
+    private IArquivoAluguelRepository arquivoAluguelRepository;
 
     @InjectMocks
     private AcessoUnidadeService acessoUnidadeService;
@@ -170,6 +175,48 @@ class AcessoUnidadeServiceTest {
     @DisplayName("Should deny access to an aluguel when idAluguel is null")
     void temAcessoAluguelCase4() {
         assertThat(acessoUnidadeService.temAcessoAluguel(null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should grant access to a contrato when the user has the unidade of the box where it was generated")
+    void temAcessoContratoCase1() {
+        UUID idUnidade = UUID.randomUUID();
+        UUID idContrato = UUID.randomUUID();
+        autenticarComo(idUnidade);
+
+        UnidadeEntity unidade = UnidadeEntity.builder().id(idUnidade).build();
+        BoxEntity box = BoxEntity.builder().id(UUID.randomUUID()).unidade(unidade).build();
+        when(arquivoAluguelRepository.findById(idContrato)).thenReturn(Optional.of(ArquivoAluguelEntity.builder().id(idContrato).box(box).build()));
+
+        assertThat(acessoUnidadeService.temAcessoContrato(idContrato)).isTrue();
+    }
+
+    @Test
+    @DisplayName("Should deny access to a contrato when the user does not have the unidade of its box")
+    void temAcessoContratoCase2() {
+        UUID idContrato = UUID.randomUUID();
+        autenticarComo(UUID.randomUUID());
+
+        UnidadeEntity outraUnidade = UnidadeEntity.builder().id(UUID.randomUUID()).build();
+        BoxEntity box = BoxEntity.builder().id(UUID.randomUUID()).unidade(outraUnidade).build();
+        when(arquivoAluguelRepository.findById(idContrato)).thenReturn(Optional.of(ArquivoAluguelEntity.builder().id(idContrato).box(box).build()));
+
+        assertThat(acessoUnidadeService.temAcessoContrato(idContrato)).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should grant access when contrato does not exist, so the service can throw 404 later")
+    void temAcessoContratoCase3() {
+        UUID idContrato = UUID.randomUUID();
+        when(arquivoAluguelRepository.findById(idContrato)).thenReturn(Optional.empty());
+
+        assertThat(acessoUnidadeService.temAcessoContrato(idContrato)).isTrue();
+    }
+
+    @Test
+    @DisplayName("Should deny access to a contrato when idContrato is null")
+    void temAcessoContratoCase4() {
+        assertThat(acessoUnidadeService.temAcessoContrato(null)).isFalse();
     }
 
 }
