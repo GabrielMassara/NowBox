@@ -2,19 +2,21 @@ package com.nowbox.nowbox_api.security;
 
 import com.nowbox.nowbox_api.modules.aluguel.repository.IAluguelRepository;
 import com.nowbox.nowbox_api.modules.box.repository.IBoxRepository;
+import com.nowbox.nowbox_api.modules.contrato.repository.IArquivoAluguelRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
-//Restringe o acesso de box e aluguel as unidades para as quais o usuario autenticado possui um cargo
+//Restringe o acesso de box, aluguel e contrato as unidades para as quais o usuario autenticado possui um cargo
 @Component
 @RequiredArgsConstructor
 public class AcessoUnidadeService {
 
     private final IBoxRepository boxRepository;
     private final IAluguelRepository aluguelRepository;
+    private final IArquivoAluguelRepository arquivoAluguelRepository;
 
     public boolean temAcesso(UUID idUnidade) {
         if (idUnidade == null) {
@@ -47,6 +49,16 @@ public class AcessoUnidadeService {
 
         return aluguelRepository.findByIdAndDeletedAtIsNull(idAluguel)
                 .map(aluguel -> temAcesso(aluguel.getBox().getUnidade().getId()))
+                .orElse(true);
+    }
+
+    public boolean temAcessoContrato(UUID idContrato) {
+        if (idContrato == null) {
+            return false;
+        }
+
+        return arquivoAluguelRepository.findById(idContrato)
+                .map(contrato -> temAcesso(contrato.getBox().getUnidade().getId()))
                 .orElse(true);
     }
 

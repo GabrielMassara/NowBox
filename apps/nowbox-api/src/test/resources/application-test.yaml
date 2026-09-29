@@ -8,3 +8,10 @@ spring:
     database-platform: org.hibernate.dialect.H2Dialect
   flyway:
     locations: classpath:db/testmigration
+  rabbitmq:
+    password: test
+app:
+  storage:
+    minio:
+      access-key: test
+      secret-key: test-secret

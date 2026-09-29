@@ -11,8 +11,10 @@ import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.box.repository.IBoxRepository;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
 import com.nowbox.nowbox_api.modules.cliente.repository.IClienteRepository;
+import com.nowbox.nowbox_api.modules.contrato.messaging.ContratoSolicitadoMessage;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,7 @@ public class AluguelService {
     private final IAluguelRepository aluguelRepository;
     private final IBoxRepository boxRepository;
     private final IClienteRepository clienteRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public Page<AluguelResponseDTO> listAllByFilter(Pageable pageable, AluguelFilterDTO filtro) {
 
@@ -97,6 +100,8 @@ public class AluguelService {
                 .status(aluguel.getStatus())
                 .build());
 
+        solicitarContrato(created);
+
         return toResponseDTO(created);
     }
 
@@ -142,6 +147,8 @@ public class AluguelService {
                 .createdAt(existente.get().getCreatedAt())
                 .build());
 
+        solicitarContrato(updated);
+
         return toResponseDTO(updated);
     }
 
@@ -152,6 +159,11 @@ public class AluguelService {
 
         existente.setDeletedAt(LocalDateTime.now());
         aluguelRepository.save(existente);
+    }
+
+    // Apenas solicita o contrato. A geracao e assincrona pelo nowbox-jobs e o envio so acontece depois do commit
+    private void solicitarContrato(AluguelEntity aluguel) {
+        eventPublisher.publishEvent(ContratoSolicitadoMessage.de(aluguel));
     }
 
     // Disponivel false indica que o box esta bloqueado para locacao
