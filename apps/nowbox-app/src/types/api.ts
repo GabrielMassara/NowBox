@@ -176,6 +176,17 @@ export interface AluguelCreateDTO {
   status: boolean
 }
 
+export interface ContratoResponseDTO {
+  id: string
+  idAluguel: string
+  idBox: string
+  numeroBox: string
+  nomeCliente: string
+  nomeArquivo: string
+  tamanho: number
+  salvoEm: string
+}
+
 export interface PageResponse<T> {
   totalPages: number
   totalElements: number

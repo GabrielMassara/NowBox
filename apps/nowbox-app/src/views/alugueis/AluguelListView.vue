@@ -2,11 +2,13 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import ContratosModal from '../../components/ContratosModal.vue'
 import { ApiError } from '../../lib/http'
 import { carregarTodas } from '../../lib/paginacao'
 import { aluguelService } from '../../services/aluguel.service'
 import { boxService } from '../../services/box.service'
 import { clienteService } from '../../services/cliente.service'
+import { contratoService } from '../../services/contrato.service'
 import { unidadeStore } from '../../stores/unidade'
 import type { AluguelResponseDTO, BoxResponseDTO, ClienteResponseDTO } from '../../types/api'
 
@@ -20,6 +22,8 @@ const clientes = ref<ClienteResponseDTO[]>([])
 const carregando = ref(true)
 const erro = ref('')
 const excluindoId = ref('')
+const baixandoContratoId = ref('')
+const aluguelDosContratos = ref<AluguelResponseDTO | null>(null)
 
 const pagina = ref(0)
 const totalPaginas = ref(0)
@@ -92,6 +96,19 @@ function novoAluguel() {
 
 function editarAluguel(aluguel: AluguelResponseDTO) {
   router.push(`/alugueis/${aluguel.id}/editar`)
+}
+
+async function baixarContrato(aluguel: AluguelResponseDTO) {
+  baixandoContratoId.value = aluguel.id
+  erro.value = ''
+
+  try {
+    await contratoService.baixarAtual(aluguel.id)
+  } catch (e) {
+    erro.value = e instanceof ApiError ? e.message : 'Não foi possível baixar o contrato.'
+  } finally {
+    baixandoContratoId.value = ''
+  }
 }
 
 async function excluirAluguel(aluguel: AluguelResponseDTO) {
@@ -221,6 +238,29 @@ onMounted(iniciar)
                 <button
                   type="button"
                   class="alugueis__acao-btn"
+                  aria-label="Baixar contrato atual"
+                  title="Baixar contrato atual"
+                  :disabled="baixandoContratoId === aluguel.id"
+                  @click="baixarContrato(aluguel)"
+                >
+                  <AppIcon
+                    :name="baixandoContratoId === aluguel.id ? 'loader' : 'download'"
+                    :size="16"
+                    :class="{ 'alugueis__spinner': baixandoContratoId === aluguel.id }"
+                  />
+                </button>
+                <button
+                  type="button"
+                  class="alugueis__acao-btn"
+                  aria-label="Histórico de contratos"
+                  title="Histórico de contratos"
+                  @click="aluguelDosContratos = aluguel"
+                >
+                  <AppIcon name="file-text" :size="16" />
+                </button>
+                <button
+                  type="button"
+                  class="alugueis__acao-btn"
                   aria-label="Editar aluguel"
                   title="Editar"
                   @click="editarAluguel(aluguel)"
@@ -275,6 +315,13 @@ onMounted(iniciar)
         </div>
       </div>
     </div>
+
+    <ContratosModal
+      v-if="aluguelDosContratos"
+      :titulo="`Contratos do aluguel do box ${aluguelDosContratos.box?.numero}`"
+      :id-aluguel="aluguelDosContratos.id"
+      @fechar="aluguelDosContratos = null"
+    />
   </div>
 </template>
 

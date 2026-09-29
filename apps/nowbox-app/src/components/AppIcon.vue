@@ -252,6 +252,13 @@ defineProps<{ name: string; size?: number }>()
       <line x1="5" y1="20" x2="19" y2="20" />
     </template>
 
+    <template v-else-if="name === 'file-text'">
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 3 14 8 19 8" />
+      <line x1="9" y1="13" x2="15" y2="13" />
+      <line x1="9" y1="17" x2="15" y2="17" />
+    </template>
+
     <template v-else-if="name === 'arrow-up-right'">
       <line x1="7" y1="17" x2="17" y2="7" />
       <polyline points="9 7 17 7 17 15" />
