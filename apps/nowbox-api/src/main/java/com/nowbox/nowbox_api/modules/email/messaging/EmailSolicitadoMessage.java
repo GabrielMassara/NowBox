@@ -24,13 +24,22 @@ public record EmailSolicitadoMessage(
 
     // Os nomes precisam existir no enum EmailTemplate do nowbox-jobs
     public enum Template {
-        ALUGUEL_REGISTRADO
+        ALUGUEL_REGISTRADO,
+        ALUGUEL_ALTERADO
     }
 
     private static final Locale PT_BR = Locale.of("pt", "BR");
     private static final DateTimeFormatter DATA = DateTimeFormatter.ofPattern("dd/MM/yyyy", PT_BR);
 
     public static EmailSolicitadoMessage aluguelRegistrado(AluguelEntity aluguel) {
+        return de(aluguel, "Seu aluguel foi registrado com sucesso", Template.ALUGUEL_REGISTRADO);
+    }
+
+    public static EmailSolicitadoMessage aluguelAlterado(AluguelEntity aluguel) {
+        return de(aluguel, "Seu aluguel foi alterado", Template.ALUGUEL_ALTERADO);
+    }
+
+    private static EmailSolicitadoMessage de(AluguelEntity aluguel, String assunto, Template template) {
         BoxEntity box = aluguel.getBox();
         ClienteEntity cliente = aluguel.getCliente();
 
@@ -39,14 +48,15 @@ public record EmailSolicitadoMessage(
         variaveis.put("numeroBox", box.getNumero());
         variaveis.put("unidade", box.getUnidade() != null ? box.getUnidade().getNome() : null);
         variaveis.put("valor", aluguel.getValor() != null ? NumberFormat.getCurrencyInstance(PT_BR).format(aluguel.getValor()) : null);
+        variaveis.put("situacao", Boolean.TRUE.equals(aluguel.getStatus()) ? "Ativo" : "Inativo");
         variaveis.put("data", DATA.format(LocalDate.now()));
 
         return new EmailSolicitadoMessage(
                 UUID.randomUUID(),
                 cliente.getEmail().trim(),
                 cliente.getNome(),
-                "Seu aluguel foi registrado com sucesso",
-                Template.ALUGUEL_REGISTRADO,
+                assunto,
+                template,
                 variaveis
         );
     }

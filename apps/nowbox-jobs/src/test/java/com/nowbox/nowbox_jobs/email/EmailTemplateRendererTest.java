@@ -26,6 +26,21 @@ class EmailTemplateRendererTest {
     }
 
     @Test
+    @DisplayName("Should fill every marker of the aluguel changed templates")
+    void renderizarAluguelAlterado() {
+        Map<String, String> variaveis = Map.of("nome", "Maria", "numeroBox", "101", "unidade", "Unidade Centro",
+                "valor", "R$ 1.234,50", "situacao", "Ativo", "data", "28/09/2026");
+
+        String html = renderer.renderizarHtml(EmailTemplate.ALUGUEL_ALTERADO, variaveis);
+        String texto = renderer.renderizarTexto(EmailTemplate.ALUGUEL_ALTERADO, variaveis);
+
+        assertThat(html).contains("Olá, Maria!", "101", "Unidade Centro", "R$ 1.234,50", "Ativo", "28/09/2026", "cid:" + EmailSender.CID_LOGO);
+        assertThat(texto).contains("Olá, Maria!", "Situação: Ativo", "Data da alteração: 28/09/2026");
+        assertThat(html).doesNotContain("{{");
+        assertThat(texto).doesNotContain("{{");
+    }
+
+    @Test
     @DisplayName("Should escape html in the values so customer data cannot inject markup")
     void escaparHtml() {
         String html = renderer.renderizarHtml(EmailTemplate.ALUGUEL_REGISTRADO,

@@ -521,6 +521,58 @@ class AluguelServiceTest {
     }
 
     @Test
+    @DisplayName("Should request the aluguel changed email when updating an aluguel for a cliente with email")
+    void updateEmailCase1() {
+        UUID id = UUID.randomUUID();
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+        BoxEntity box = BoxEntity.builder().id(idBox).numero("101")
+                .unidade(UnidadeEntity.builder().id(UUID.randomUUID()).nome("Unidade Centro").cnpj("11111111111111").build()).build();
+        ClienteEntity cliente = ClienteEntity.builder().id(idCliente).nome("Maria").email(" maria@email.com ").build();
+
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(new BigDecimal("1234.50")).status(false).build();
+
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).box(box).cliente(cliente).status(false).createdAt(LocalDateTime.now()).build()));
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
+        when(aluguelRepository.save(any(AluguelEntity.class))).thenReturn(AluguelEntity.builder()
+                .id(id).box(box).cliente(cliente).valor(new BigDecimal("1234.50")).status(false).build());
+
+        aluguelService.update(aluguel, id);
+
+        verify(eventPublisher).publishEvent(argThat((Object e) -> e instanceof EmailSolicitadoMessage m
+                && m.template() == EmailSolicitadoMessage.Template.ALUGUEL_ALTERADO
+                && m.destinatario().equals("maria@email.com")
+                && m.nomeDestinatario().equals("Maria")
+                && m.variaveis().get("numeroBox").equals("101")
+                && m.variaveis().get("unidade").equals("Unidade Centro")
+                && m.variaveis().get("situacao").equals("Inativo")
+                && m.variaveis().get("valor").replace(' ', ' ').equals("R$ 1.234,50")));
+    }
+
+    @Test
+    @DisplayName("Should not request the aluguel changed email when the cliente has no email")
+    void updateEmailCase2() {
+        UUID id = UUID.randomUUID();
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+        BoxEntity box = boxBuilder().id(idBox).numero("101").build();
+        ClienteEntity cliente = ClienteEntity.builder().id(idCliente).nome("Maria").email(null).build();
+
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.TEN).status(false).build();
+
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).box(box).cliente(cliente).status(false).createdAt(LocalDateTime.now()).build()));
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
+        when(aluguelRepository.save(any(AluguelEntity.class))).thenReturn(AluguelEntity.builder()
+                .id(id).box(box).cliente(cliente).valor(BigDecimal.TEN).status(false).build());
+
+        aluguelService.update(aluguel, id);
+
+        verify(eventPublisher, never()).publishEvent(argThat((Object e) -> e instanceof EmailSolicitadoMessage));
+    }
+
+    @Test
     @DisplayName("Should update an active aluguel when no other active one exists for the box")
     void updateCase6() {
         // ids do aluguel, do box e do cliente utilizados na atualizacao
