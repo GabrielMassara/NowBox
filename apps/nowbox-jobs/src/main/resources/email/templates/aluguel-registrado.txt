@@ -1,0 +1,13 @@
+Olá, {{nome}}!
+
+Seu aluguel foi realizado com sucesso. O contrato será emitido em breve.
+
+Box: {{numeroBox}}
+Unidade: {{unidade}}
+Valor: {{valor}}
+Data do registro: {{data}}
+
+Assim que o contrato estiver pronto, ele ficará disponível para você.
+Em caso de dúvidas, é só responder este e-mail.
+
+(c) {{ano}} NowBox
