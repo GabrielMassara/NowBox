@@ -1,0 +1,14 @@
+Olá, {{nome}}!
+
+Seu aluguel foi alterado. Confira abaixo os dados atualizados.
+
+Box: {{numeroBox}}
+Unidade: {{unidade}}
+Valor: {{valor}}
+Situação: {{situacao}}
+Data da alteração: {{data}}
+
+Um novo contrato será emitido com os dados atualizados.
+Em caso de dúvidas, é só responder este e-mail.
+
+(c) {{ano}} NowBox

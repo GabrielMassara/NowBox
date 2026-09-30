@@ -2,7 +2,8 @@ package com.nowbox.nowbox_jobs.email;
 
 public enum EmailTemplate {
 
-    ALUGUEL_REGISTRADO("aluguel-registrado");
+    ALUGUEL_REGISTRADO("aluguel-registrado"),
+    ALUGUEL_ALTERADO("aluguel-alterado");
 
     private final String arquivo;
 

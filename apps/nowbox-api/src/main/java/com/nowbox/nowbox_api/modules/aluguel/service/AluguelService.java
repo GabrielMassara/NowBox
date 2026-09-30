@@ -24,6 +24,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 
 @Service
 @RequiredArgsConstructor
@@ -102,7 +103,7 @@ public class AluguelService {
                 .build());
 
         solicitarContrato(created);
-        solicitarEmailAluguelRegistrado(created);
+        solicitarEmail(created, EmailSolicitadoMessage::aluguelRegistrado);
 
         return toResponseDTO(created);
     }
@@ -150,6 +151,7 @@ public class AluguelService {
                 .build());
 
         solicitarContrato(updated);
+        solicitarEmail(updated, EmailSolicitadoMessage::aluguelAlterado);
 
         return toResponseDTO(updated);
     }
@@ -168,13 +170,13 @@ public class AluguelService {
         eventPublisher.publishEvent(ContratoSolicitadoMessage.de(aluguel));
     }
 
-    // Avisa o cliente do novo aluguel. O envio é assincrono pelo nowbox-jobs e só acontece depois do commit e é ignorado se o cliente nao tem email
-    private void solicitarEmailAluguelRegistrado(AluguelEntity aluguel) {
+    // Avisa o cliente do aluguel (registrado ou alterado). O envio é assincrono pelo nowbox-jobs e só acontece depois do commit e é ignorado se o cliente nao tem email
+    private void solicitarEmail(AluguelEntity aluguel, Function<AluguelEntity, EmailSolicitadoMessage> mensagem) {
         if(!StringUtils.hasText(aluguel.getCliente().getEmail())) {
             return;
         }
 
-        eventPublisher.publishEvent(EmailSolicitadoMessage.aluguelRegistrado(aluguel));
+        eventPublisher.publishEvent(mensagem.apply(aluguel));
     }
 
     // Disponivel false indica que o box esta bloqueado para locacao
