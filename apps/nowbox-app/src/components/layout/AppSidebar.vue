@@ -252,6 +252,7 @@ onMounted(() => menuStore.carregar())
   font-size: 14.5px;
   font-weight: 500;
   margin-bottom: 4px;
+  cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 

@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonForm from '../../components/skeleton/SkeletonForm.vue'
 import { ApiError } from '../../lib/http'
 import { mascaraCep, mascaraCnpj } from '../../lib/mascaras'
 import { estadoService } from '../../services/estado.service'
@@ -116,10 +117,7 @@ async function onSubmit() {
     </button>
 
     <div class="unidade-manter__card">
-      <div v-if="carregando" class="unidade-manter__state">
-        <AppIcon name="loader" :size="20" class="unidade-manter__spinner" />
-        <span>Carregando unidade...</span>
-      </div>
+      <SkeletonForm v-if="carregando" />
 
       <template v-else>
         <div class="unidade-manter__header">

@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonForm from '../../components/skeleton/SkeletonForm.vue'
 import { ApiError } from '../../lib/http'
 import { boxService } from '../../services/box.service'
 import { unidadeStore } from '../../stores/unidade'
@@ -85,10 +86,7 @@ async function onSubmit() {
     </button>
 
     <div class="box-manter__card">
-      <div v-if="carregando" class="box-manter__state">
-        <AppIcon name="loader" :size="20" class="box-manter__spinner" />
-        <span>Carregando box...</span>
-      </div>
+      <SkeletonForm v-if="carregando" />
 
       <template v-else>
         <div class="box-manter__header">

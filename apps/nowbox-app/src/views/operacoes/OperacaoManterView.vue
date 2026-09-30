@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonForm from '../../components/skeleton/SkeletonForm.vue'
 import { ApiError } from '../../lib/http'
 import { moduloService } from '../../services/modulo.service'
 import { operacaoService } from '../../services/operacao.service'
@@ -85,10 +86,7 @@ async function onSubmit() {
     </button>
 
     <div class="operacao-manter__card">
-      <div v-if="carregando" class="operacao-manter__state">
-        <AppIcon name="loader" :size="20" class="operacao-manter__spinner" />
-        <span>Carregando operação...</span>
-      </div>
+      <SkeletonForm v-if="carregando" />
 
       <template v-else>
         <div class="operacao-manter__header">

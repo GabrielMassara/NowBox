@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonForm from '../../components/skeleton/SkeletonForm.vue'
 import { ApiError } from '../../lib/http'
 import { carregarTodas } from '../../lib/paginacao'
 import { atribuicaoService } from '../../services/atribuicao.service'
@@ -94,10 +95,7 @@ async function onSubmit() {
     </button>
 
     <div class="atribuicao-manter__card">
-      <div v-if="carregando" class="atribuicao-manter__state">
-        <AppIcon name="loader" :size="20" class="atribuicao-manter__spinner" />
-        <span>Carregando atribuição...</span>
-      </div>
+      <SkeletonForm v-if="carregando" />
 
       <template v-else>
         <div class="atribuicao-manter__header">

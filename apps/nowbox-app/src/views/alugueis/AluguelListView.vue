@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonTable from '../../components/skeleton/SkeletonTable.vue'
 import ContratosModal from '../../components/ContratosModal.vue'
 import { ApiError } from '../../lib/http'
 import { carregarTodas } from '../../lib/paginacao'
@@ -189,10 +190,7 @@ onMounted(iniciar)
         </button>
       </div>
 
-      <div v-if="carregando" class="alugueis__state">
-        <AppIcon name="loader" :size="20" class="alugueis__spinner" />
-        <span>Carregando aluguéis...</span>
-      </div>
+      <SkeletonTable :colunas="6" v-if="carregando" />
 
       <div v-else-if="erro" class="alugueis__state alugueis__state--error">
         <AppIcon name="alert-circle" :size="20" />

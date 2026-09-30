@@ -2,6 +2,7 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonTable from '../../components/skeleton/SkeletonTable.vue'
 import { ApiError } from '../../lib/http'
 import { sessaoService } from '../../services/sessao.service'
 import type { SessaoResponseDTO } from '../../types/api'
@@ -108,10 +109,7 @@ carregar()
         </button>
       </div>
 
-      <div v-if="carregando" class="sessoes__state">
-        <AppIcon name="loader" :size="20" class="sessoes__spinner" />
-        <span>Carregando sessões...</span>
-      </div>
+      <SkeletonTable :colunas="3" v-if="carregando" />
 
       <div v-else-if="erro" class="sessoes__state sessoes__state--error">
         <AppIcon name="alert-circle" :size="20" />

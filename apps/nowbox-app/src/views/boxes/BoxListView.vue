@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonTable from '../../components/skeleton/SkeletonTable.vue'
 import ContratosModal from '../../components/ContratosModal.vue'
 import { ApiError } from '../../lib/http'
 import { boxService } from '../../services/box.service'
@@ -134,10 +135,7 @@ onMounted(carregar)
         </div>
       </div>
 
-      <div v-if="carregando" class="boxes__state">
-        <AppIcon name="loader" :size="20" class="boxes__spinner" />
-        <span>Carregando boxes...</span>
-      </div>
+      <SkeletonTable :colunas="6" v-if="carregando" />
 
       <div v-else-if="erro" class="boxes__state boxes__state--error">
         <AppIcon name="alert-circle" :size="20" />
