@@ -4,6 +4,7 @@ import com.nowbox.nowbox_api.modules.atribuicao.repository.IAtribuicaoRepository
 import com.nowbox.nowbox_api.modules.permissao.repository.IPermissaoRepository;
 import com.nowbox.nowbox_api.security.JwtAuthenticationFilter;
 import com.nowbox.nowbox_api.security.JwtService;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,6 +35,7 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers("/v1/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) ->
