@@ -21,6 +21,27 @@ spring:
           enabled: true
           max-attempts: 3
           initial-interval: 2s
+  mail:
+    host: ${MAIL_HOST:smtp.hostinger.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    protocol: ${MAIL_PROTOCOL:smtp}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 10000
+          timeout: 15000
+          writetimeout: 15000
+        smtps:
+          auth: true
+          connectiontimeout: 10000
+          timeout: 15000
+          writetimeout: 15000
 server:
   port: 8081
 
@@ -31,3 +52,6 @@ app:
       access-key: ${MINIO_ACCESS_KEY}
       secret-key: ${MINIO_SECRET_KEY}
       bucket-contratos: ${MINIO_BUCKET_CONTRATOS:nowbox-contratos}
+  mail:
+    from: ${MAIL_FROM:${MAIL_USERNAME}}
+    from-name: ${MAIL_FROM_NAME:NowBox}
