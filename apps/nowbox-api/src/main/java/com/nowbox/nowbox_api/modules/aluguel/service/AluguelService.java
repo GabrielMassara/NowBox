@@ -12,6 +12,7 @@ import com.nowbox.nowbox_api.modules.box.repository.IBoxRepository;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
 import com.nowbox.nowbox_api.modules.cliente.repository.IClienteRepository;
 import com.nowbox.nowbox_api.modules.contrato.messaging.ContratoSolicitadoMessage;
+import com.nowbox.nowbox_api.modules.email.messaging.EmailSolicitadoMessage;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -101,6 +102,7 @@ public class AluguelService {
                 .build());
 
         solicitarContrato(created);
+        solicitarEmailAluguelRegistrado(created);
 
         return toResponseDTO(created);
     }
@@ -164,6 +166,15 @@ public class AluguelService {
     // Apenas solicita o contrato. A geracao e assincrona pelo nowbox-jobs e o envio so acontece depois do commit
     private void solicitarContrato(AluguelEntity aluguel) {
         eventPublisher.publishEvent(ContratoSolicitadoMessage.de(aluguel));
+    }
+
+    // Avisa o cliente do novo aluguel. O envio é assincrono pelo nowbox-jobs e só acontece depois do commit e é ignorado se o cliente nao tem email
+    private void solicitarEmailAluguelRegistrado(AluguelEntity aluguel) {
+        if(!StringUtils.hasText(aluguel.getCliente().getEmail())) {
+            return;
+        }
+
+        eventPublisher.publishEvent(EmailSolicitadoMessage.aluguelRegistrado(aluguel));
     }
 
     // Disponivel false indica que o box esta bloqueado para locacao
