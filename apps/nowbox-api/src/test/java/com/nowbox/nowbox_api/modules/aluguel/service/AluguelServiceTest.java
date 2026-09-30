@@ -13,6 +13,7 @@ import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
 import com.nowbox.nowbox_api.modules.cliente.repository.IClienteRepository;
 import com.nowbox.nowbox_api.modules.unidade.entity.UnidadeEntity;
 import com.nowbox.nowbox_api.modules.contrato.messaging.ContratoSolicitadoMessage;
+import com.nowbox.nowbox_api.modules.email.messaging.EmailSolicitadoMessage;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -246,6 +247,54 @@ class AluguelServiceTest {
 
         // verifica se solicitou a geracao do contrato apenas publicando o evento, sem esperar o contrato ficar pronto
         verify(eventPublisher).publishEvent(argThat((Object e) -> e instanceof ContratoSolicitadoMessage m && m.idAluguel().equals(id) && m.idBox().equals(idBox) && m.numeroBox().equals("101")));
+    }
+
+    @Test
+    @DisplayName("Should request the aluguel registered email when creating an aluguel for a cliente with email")
+    void createEmailCase1() {
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+        BoxEntity box = BoxEntity.builder().id(idBox).numero("101")
+                .unidade(UnidadeEntity.builder().id(UUID.randomUUID()).nome("Unidade Centro").cnpj("11111111111111").build()).build();
+        ClienteEntity cliente = ClienteEntity.builder().id(idCliente).nome("Maria").email(" maria@email.com ").build();
+
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(new BigDecimal("1234.50")).status(true).build();
+
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
+        when(aluguelRepository.save(any(AluguelEntity.class))).thenReturn(AluguelEntity.builder()
+                .id(UUID.randomUUID()).box(box).cliente(cliente).valor(new BigDecimal("1234.50")).status(true).build());
+
+        aluguelService.create(aluguel);
+
+        // o email so e solicitado (publicando o evento), o envio e feito de forma assincrona pelo worker
+        verify(eventPublisher).publishEvent(argThat((Object e) -> e instanceof EmailSolicitadoMessage m
+                && m.template() == EmailSolicitadoMessage.Template.ALUGUEL_REGISTRADO
+                && m.destinatario().equals("maria@email.com")
+                && m.nomeDestinatario().equals("Maria")
+                && m.variaveis().get("numeroBox").equals("101")
+                && m.variaveis().get("unidade").equals("Unidade Centro")
+                && m.variaveis().get("valor").replace(' ', ' ').equals("R$ 1.234,50")));
+    }
+
+    @Test
+    @DisplayName("Should not request the aluguel registered email when the cliente has no email")
+    void createEmailCase2() {
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+        BoxEntity box = boxBuilder().id(idBox).numero("101").build();
+        ClienteEntity cliente = ClienteEntity.builder().id(idCliente).nome("Maria").email("  ").build();
+
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.TEN).status(true).build();
+
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
+        when(aluguelRepository.save(any(AluguelEntity.class))).thenReturn(AluguelEntity.builder()
+                .id(UUID.randomUUID()).box(box).cliente(cliente).valor(BigDecimal.TEN).status(true).build());
+
+        aluguelService.create(aluguel);
+
+        verify(eventPublisher, never()).publishEvent(argThat((Object e) -> e instanceof EmailSolicitadoMessage));
     }
 
     @Test
