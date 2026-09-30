@@ -32,4 +32,5 @@ The goal is to simplify the day-to-day routine of businesses in this industry, r
   <img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
   <img src="https://img.shields.io/badge/MinIO-C72E49?style=for-the-badge&logo=minio&logoColor=white" alt="MinIO" />
   <img src="https://img.shields.io/badge/RabbitMQ-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white" alt="RabbitMQ" />
+  <img src="https://img.shields.io/badge/SMTP-0F766E?style=for-the-badge&logo=gmail&logoColor=white" alt="SMTP" />
 </p>
