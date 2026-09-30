@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonTable from '../../components/skeleton/SkeletonTable.vue'
 import { ApiError } from '../../lib/http'
 import { cargoService } from '../../services/cargo.service'
 import { unidadeService } from '../../services/unidade.service'
@@ -127,10 +128,7 @@ onMounted(() => {
         </button>
       </div>
 
-      <div v-if="carregando" class="cargos__state">
-        <AppIcon name="loader" :size="20" class="cargos__spinner" />
-        <span>Carregando cargos...</span>
-      </div>
+      <SkeletonTable :colunas="3" v-if="carregando" />
 
       <div v-else-if="erro" class="cargos__state cargos__state--error">
         <AppIcon name="alert-circle" :size="20" />

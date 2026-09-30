@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonForm from '../../components/skeleton/SkeletonForm.vue'
 import { ApiError } from '../../lib/http'
 import { carregarTodas } from '../../lib/paginacao'
 import { boxService } from '../../services/box.service'
@@ -132,10 +133,7 @@ async function onSubmit() {
     </button>
 
     <div class="box-lote__card">
-      <div v-if="carregando" class="box-lote__state">
-        <AppIcon name="loader" :size="20" class="box-lote__spinner" />
-        <span>Verificando os boxes já cadastrados...</span>
-      </div>
+      <SkeletonForm v-if="carregando" />
 
       <div v-else-if="erroCarga" class="box-lote__state box-lote__state--error">
         <AppIcon name="alert-circle" :size="20" />

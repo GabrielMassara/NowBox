@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonTable from '../../components/skeleton/SkeletonTable.vue'
 import { ApiError } from '../../lib/http'
 import { estadoService } from '../../services/estado.service'
 import type { EstadoEntity } from '../../types/api'
@@ -43,10 +44,7 @@ carregar()
 <template>
   <div class="estados">
     <div class="estados__painel">
-      <div v-if="carregando" class="estados__state">
-        <AppIcon name="loader" :size="20" class="estados__spinner" />
-        <span>Carregando estados...</span>
-      </div>
+      <SkeletonTable :colunas="2" v-if="carregando" />
 
       <div v-else-if="erro" class="estados__state estados__state--error">
         <AppIcon name="alert-circle" :size="20" />

@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonTable from '../../components/skeleton/SkeletonTable.vue'
 import { ApiError } from '../../lib/http'
 import { mascaraCpf } from '../../lib/mascaras'
 import { usuarioService } from '../../services/usuario.service'
@@ -132,10 +133,7 @@ onMounted(carregar)
         </button>
       </div>
 
-      <div v-if="carregando" class="usuarios__state">
-        <AppIcon name="loader" :size="20" class="usuarios__spinner" />
-        <span>Carregando usuários...</span>
-      </div>
+      <SkeletonTable :colunas="5" v-if="carregando" />
 
       <div v-else-if="erro" class="usuarios__state usuarios__state--error">
         <AppIcon name="alert-circle" :size="20" />

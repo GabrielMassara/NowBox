@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonForm from '../../components/skeleton/SkeletonForm.vue'
 import PermissaoTree from '../../components/PermissaoTree.vue'
 import { ApiError } from '../../lib/http'
 import { carregarTodas } from '../../lib/paginacao'
@@ -108,10 +109,7 @@ async function onSubmit() {
     </button>
 
     <div class="permissao-manter__card">
-      <div v-if="carregando" class="permissao-manter__state">
-        <AppIcon name="loader" :size="20" class="permissao-manter__spinner" />
-        <span>Carregando dados...</span>
-      </div>
+      <SkeletonForm v-if="carregando" />
 
       <template v-else>
         <div class="permissao-manter__header">

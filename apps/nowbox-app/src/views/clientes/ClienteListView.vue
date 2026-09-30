@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import SkeletonTable from '../../components/skeleton/SkeletonTable.vue'
 import { ApiError } from '../../lib/http'
 import { mascaraCpf, mascaraTelefone } from '../../lib/mascaras'
 import { clienteService } from '../../services/cliente.service'
@@ -155,10 +156,7 @@ onMounted(() => {
         </button>
       </div>
 
-      <div v-if="carregando" class="clientes__state">
-        <AppIcon name="loader" :size="20" class="clientes__spinner" />
-        <span>Carregando clientes...</span>
-      </div>
+      <SkeletonTable :colunas="6" v-if="carregando" />
 
       <div v-else-if="erro" class="clientes__state clientes__state--error">
         <AppIcon name="alert-circle" :size="20" />
