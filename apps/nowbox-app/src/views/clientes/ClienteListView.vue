@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import DocumentoModal from '../../components/DocumentoModal.vue'
 import SkeletonTable from '../../components/skeleton/SkeletonTable.vue'
 import { ApiError } from '../../lib/http'
 import { mascaraCpf, mascaraTelefone } from '../../lib/mascaras'
@@ -18,6 +19,7 @@ const estados = ref<EstadoEntity[]>([])
 const carregando = ref(false)
 const erro = ref('')
 const excluindoId = ref('')
+const documentoCliente = ref<ClienteResponseDTO | null>(null)
 
 const pagina = ref(0)
 const totalPaginas = ref(0)
@@ -76,6 +78,10 @@ function irParaPagina(novaPagina: number) {
 
 function novoCliente() {
   router.push('/clientes/novo')
+}
+
+function visualizarDocumento(cliente: ClienteResponseDTO) {
+  documentoCliente.value = cliente
 }
 
 function editarCliente(cliente: ClienteResponseDTO) {
@@ -192,6 +198,15 @@ onMounted(() => {
                 <button
                   type="button"
                   class="clientes__acao-btn"
+                  aria-label="Visualizar documento"
+                  title="Visualizar documento"
+                  @click="visualizarDocumento(cliente)"
+                >
+                  <AppIcon name="eye" :size="16" />
+                </button>
+                <button
+                  type="button"
+                  class="clientes__acao-btn"
                   aria-label="Editar cliente"
                   title="Editar"
                   @click="editarCliente(cliente)"
@@ -246,6 +261,13 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <DocumentoModal
+      v-if="documentoCliente"
+      :id-cliente="documentoCliente.id"
+      :titulo="`Documento de ${documentoCliente.nome}`"
+      @fechar="documentoCliente = null"
+    />
   </div>
 </template>
 

@@ -8,6 +8,13 @@ export interface ClienteFiltro {
   email?: string
 }
 
+function montarFormulario(dados: ClienteCreateDTO, documento?: File | null) {
+  const form = new FormData()
+  form.append('cliente', new Blob([JSON.stringify(dados)], { type: 'application/json' }))
+  if (documento) form.append('documento', documento)
+  return form
+}
+
 export const clienteService = {
   listar(pagina: number, tamanho: number, filtro: ClienteFiltro = {}) {
     const params = new URLSearchParams({ page: String(pagina), size: String(tamanho) })
@@ -23,12 +30,16 @@ export const clienteService = {
     return http.get<ClienteResponseDTO>(`/v1/cliente/${id}`)
   },
 
-  criar(dados: ClienteCreateDTO) {
-    return http.post<ClienteResponseDTO>('/v1/cliente', dados)
+  criar(dados: ClienteCreateDTO, documento: File) {
+    return http.postForm<ClienteResponseDTO>('/v1/cliente', montarFormulario(dados, documento))
   },
 
-  atualizar(id: string, dados: ClienteCreateDTO) {
-    return http.put<ClienteResponseDTO>(`/v1/cliente/${id}`, dados)
+  atualizar(id: string, dados: ClienteCreateDTO, documento?: File | null) {
+    return http.putForm<ClienteResponseDTO>(`/v1/cliente/${id}`, montarFormulario(dados, documento))
+  },
+
+  obterDocumento(id: string) {
+    return http.download(`/v1/cliente/${id}/documento`)
   },
 
   excluir(id: string) {

@@ -2,12 +2,13 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import DocumentoPreview from '../../components/DocumentoPreview.vue'
 import SkeletonForm from '../../components/skeleton/SkeletonForm.vue'
 import { ApiError } from '../../lib/http'
 import { mascaraCep, mascaraCpf, mascaraRg, mascaraTelefone, semMascaraRg } from '../../lib/mascaras'
 import { clienteService } from '../../services/cliente.service'
 import { estadoService } from '../../services/estado.service'
-import type { EstadoEntity } from '../../types/api'
+import type { DocumentoIdentidadeDTO, EstadoEntity } from '../../types/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -38,12 +39,49 @@ const estados = ref<EstadoEntity[]>([])
 // A API regrava esse campo a cada atualização, então ele é preservado na edição.
 const senhaTemporariaStatus = ref(false)
 
+const TIPOS_DOCUMENTO = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+const TAMANHO_MAXIMO_DOCUMENTO = 10 * 1024 * 1024
+const documento = ref<File | null>(null)
+const documentoAtual = ref<DocumentoIdentidadeDTO | null>(null)
+const erroDocumento = ref('')
+const documentoAtualBlob = ref<Blob | null>(null)
+
 const carregando = ref(false)
 const salvando = ref(false)
 const erro = ref('')
 
 function somenteDigitos(valor: string) {
   return valor.replace(/\D/g, '')
+}
+
+function onDocumentoSelecionado(event: Event) {
+  const input = event.target as HTMLInputElement
+  const arquivo = input.files?.[0] ?? null
+  erroDocumento.value = ''
+  documento.value = null
+
+  if (!arquivo) return
+
+  if (!TIPOS_DOCUMENTO.includes(arquivo.type)) {
+    erroDocumento.value = 'Envie uma imagem (JPG, PNG ou WEBP) ou um PDF.'
+    input.value = ''
+    return
+  }
+  if (arquivo.size > TAMANHO_MAXIMO_DOCUMENTO) {
+    erroDocumento.value = 'O documento deve ter no máximo 10 MB.'
+    input.value = ''
+    return
+  }
+
+  documento.value = arquivo
+}
+
+async function carregarDocumentoAtual(id: string) {
+  try {
+    documentoAtualBlob.value = (await clienteService.obterDocumento(id)).blob
+  } catch (e) {
+    erroDocumento.value = e instanceof ApiError ? e.message : 'Não foi possível carregar o documento atual.'
+  }
 }
 
 async function carregarEstados() {
@@ -78,6 +116,8 @@ async function carregarCliente(id: string) {
     form.complemento = cliente.complemento ?? ''
     form.enderecoCorrespondencia = cliente.enderecoCorrespondencia ?? false
     senhaTemporariaStatus.value = cliente.senhaTemporariaStatus ?? false
+    documentoAtual.value = cliente.documentoIdentidade ?? null
+    if (documentoAtual.value) carregarDocumentoAtual(id)
   } catch (e) {
     erro.value = e instanceof ApiError ? e.message : 'Não foi possível carregar o cliente.'
   } finally {
@@ -96,6 +136,11 @@ function voltar() {
 
 async function onSubmit() {
   if (salvando.value) return
+
+  if (!documento.value && !documentoAtual.value) {
+    erroDocumento.value = 'Envie o documento de identidade.'
+    return
+  }
 
   salvando.value = true
   erro.value = ''
@@ -123,9 +168,9 @@ async function onSubmit() {
 
   try {
     if (idCliente.value) {
-      await clienteService.atualizar(idCliente.value, dados)
+      await clienteService.atualizar(idCliente.value, dados, documento.value)
     } else {
-      await clienteService.criar(dados)
+      await clienteService.criar(dados, documento.value!)
     }
     voltar()
   } catch (e) {
@@ -363,6 +408,29 @@ async function onSubmit() {
             </span>
           </div>
 
+          <div class="cliente-manter__campo cliente-manter__campo--cheio">
+            <label for="cliente-documento">Documento de identidade</label>
+            <input
+              id="cliente-documento"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              :required="!documentoAtual"
+              :disabled="salvando"
+              @change="onDocumentoSelecionado"
+            />
+            <span class="cliente-manter__ajuda">Imagem (JPG, PNG ou WEBP) ou PDF, até 10 MB.</span>
+            <span v-if="documentoAtual && !documento" class="cliente-manter__ajuda cliente-manter__documento-atual">
+              <AppIcon name="file-text" :size="14" />
+              Documento atual: {{ documentoAtual.nomeArquivo }} · Selecione outro arquivo para substituí-lo.
+            </span>
+            <span v-if="erroDocumento" class="cliente-manter__erro-campo">{{ erroDocumento }}</span>
+
+            <DocumentoPreview
+              :arquivo="documento ?? documentoAtualBlob"
+              :nome="documento?.name ?? documentoAtual?.nomeArquivo"
+            />
+          </div>
+
           <label class="cliente-manter__check">
             <input v-model="form.enderecoCorrespondencia" type="checkbox" :disabled="salvando" />
             Usar este endereço para correspondência
@@ -498,6 +566,22 @@ async function onSubmit() {
 .cliente-manter__ajuda {
   font-size: 12.5px;
   color: var(--text-muted);
+}
+
+.cliente-manter__campo--cheio {
+  grid-column: 1 / -1;
+}
+
+.cliente-manter__documento-atual {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cliente-manter__erro-campo {
+  font-size: 12.5px;
+  color: var(--text-critical);
 }
 
 .cliente-manter__erro {

@@ -26,7 +26,7 @@ async function lerMensagemDeErro(response: Response): Promise<string | undefined
 async function enviar(path: string, init: RequestInit, accept?: string): Promise<Response> {
   const token = localStorage.getItem(TOKEN_STORAGE_KEY)
   const headers = new Headers(init.headers)
-  headers.set('Content-Type', 'application/json')
+  if (!(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   if (accept) headers.set('Accept', accept)
   if (token) headers.set('Authorization', `Bearer ${token}`)
 
@@ -77,6 +77,8 @@ export const http = {
     request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
+  postForm: <T>(path: string, body: FormData) => request<T>(path, { method: 'POST', body }),
+  putForm: <T>(path: string, body: FormData) => request<T>(path, { method: 'PUT', body }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 }
 
