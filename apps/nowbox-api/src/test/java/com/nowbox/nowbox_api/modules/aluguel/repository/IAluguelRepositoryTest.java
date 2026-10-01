@@ -1,5 +1,6 @@
 package com.nowbox.nowbox_api.modules.aluguel.repository;
 
+import com.nowbox.nowbox_api.modules.cliente.ClienteTestFixtures;
 import com.nowbox.nowbox_api.modules.aluguel.entity.AluguelEntity;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
@@ -247,13 +248,13 @@ class IAluguelRepositoryTest {
                 .email("cliente1@test.com").telefone("11911111111").sexo("M")
                 .nascimento(LocalDate.of(1990, 1, 1)).endereco("Rua 1").numero("1")
                 .bairro("Bairro 1").cep("11111111").cidade("Cidade 1").estado(estado)
-                .enderecoCorrespondencia(true).senha("senha123").senhaTemporariaStatus(false).build();
+                .documentoIdentidade(ClienteTestFixtures.documento(this.em)).enderecoCorrespondencia(true).senha("senha123").senhaTemporariaStatus(false).build();
         ClienteEntity cliente2 = ClienteEntity.builder()
                 .nome("Cliente 2").profissao("Advogado").cpf("22222222222").rg("222222222")
                 .email("cliente2@test.com").telefone("11922222222").sexo("F")
                 .nascimento(LocalDate.of(1991, 2, 2)).endereco("Rua 2").numero("2")
                 .bairro("Bairro 2").cep("22222222").cidade("Cidade 2").estado(estado)
-                .enderecoCorrespondencia(false).senha("senha456").senhaTemporariaStatus(false).build();
+                .documentoIdentidade(ClienteTestFixtures.documento(this.em)).enderecoCorrespondencia(false).senha("senha456").senhaTemporariaStatus(false).build();
         this.em.persist(cliente1);
         this.em.persist(cliente2);
 

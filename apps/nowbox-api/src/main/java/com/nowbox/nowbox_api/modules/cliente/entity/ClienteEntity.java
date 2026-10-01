@@ -1,6 +1,7 @@
 package com.nowbox.nowbox_api.modules.cliente.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.nowbox.nowbox_api.modules.contrato.entity.ArquivoEntity;
 import com.nowbox.nowbox_api.modules.estado.entity.EstadoEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -69,6 +70,10 @@ public class ClienteEntity {
     @JoinColumn(name = "id_estado", nullable = false)
     @NotNull
     private EstadoEntity estado;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "id_documento_identidade", nullable = false)
+    private ArquivoEntity documentoIdentidade;
 
     @Column(name = "endereco_correspondencia")
     private Boolean enderecoCorrespondencia;
