@@ -6,6 +6,10 @@ spring:
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
   jpa:
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:validate}
@@ -32,3 +36,4 @@ app:
       access-key: ${MINIO_ACCESS_KEY}
       secret-key: ${MINIO_SECRET_KEY}
       bucket-contratos: ${MINIO_BUCKET_CONTRATOS:nowbox-contratos}
+      bucket-documentos: ${MINIO_BUCKET_DOCUMENTOS:nowbox-documentos}

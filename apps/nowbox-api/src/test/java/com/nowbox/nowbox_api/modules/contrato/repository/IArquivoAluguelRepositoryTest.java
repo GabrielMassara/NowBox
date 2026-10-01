@@ -1,5 +1,6 @@
 package com.nowbox.nowbox_api.modules.contrato.repository;
 
+import com.nowbox.nowbox_api.modules.cliente.ClienteTestFixtures;
 import com.nowbox.nowbox_api.modules.aluguel.entity.AluguelEntity;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
@@ -48,7 +49,7 @@ class IArquivoAluguelRepositoryTest {
                 .email("cliente1@test.com").telefone("11911111111").sexo("M")
                 .nascimento(LocalDate.of(1990, 1, 1)).endereco("Rua 1").numero("1")
                 .bairro("Bairro 1").cep("11111111").cidade("Cidade 1").estado(estado)
-                .enderecoCorrespondencia(true).senha("senha123").senhaTemporariaStatus(false).build();
+                .documentoIdentidade(ClienteTestFixtures.documento(em)).enderecoCorrespondencia(true).senha("senha123").senhaTemporariaStatus(false).build();
         em.persist(cliente);
         return cliente;
     }

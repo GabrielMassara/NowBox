@@ -48,6 +48,8 @@ public class ClienteResponseDTO {
 
     private Boolean enderecoCorrespondencia;
 
+    private DocumentoIdentidadeDTO documentoIdentidade;
+
     private Boolean senhaTemporariaStatus;
 
     private LocalDateTime createdAt;
