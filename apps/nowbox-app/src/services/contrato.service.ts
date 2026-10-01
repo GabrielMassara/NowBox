@@ -1,21 +1,10 @@
+import { salvarArquivo } from '../lib/arquivo'
 import { http } from '../lib/http'
 import type { ContratoResponseDTO, PageResponse } from '../types/api'
 
 function listar(path: string, pagina: number, tamanho: number) {
   const params = new URLSearchParams({ page: String(pagina), size: String(tamanho) })
   return http.get<PageResponse<ContratoResponseDTO>>(`${path}?${params}`)
-}
-
-// Salva o arquivo recebido pela API. O download passa pelo fetch porque o token vai no cabeçalho Authorization.
-function salvarArquivo(blob: Blob, nomeArquivo: string) {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = nomeArquivo
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
 }
 
 export const contratoService = {

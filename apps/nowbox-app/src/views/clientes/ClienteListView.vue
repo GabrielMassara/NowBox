@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
+import DocumentoHistoricoModal from '../../components/DocumentoHistoricoModal.vue'
 import DocumentoModal from '../../components/DocumentoModal.vue'
 import SkeletonTable from '../../components/skeleton/SkeletonTable.vue'
 import { ApiError } from '../../lib/http'
@@ -20,6 +21,7 @@ const carregando = ref(false)
 const erro = ref('')
 const excluindoId = ref('')
 const documentoCliente = ref<ClienteResponseDTO | null>(null)
+const historicoCliente = ref<ClienteResponseDTO | null>(null)
 
 const pagina = ref(0)
 const totalPaginas = ref(0)
@@ -82,6 +84,10 @@ function novoCliente() {
 
 function visualizarDocumento(cliente: ClienteResponseDTO) {
   documentoCliente.value = cliente
+}
+
+function visualizarHistorico(cliente: ClienteResponseDTO) {
+  historicoCliente.value = cliente
 }
 
 function editarCliente(cliente: ClienteResponseDTO) {
@@ -207,6 +213,15 @@ onMounted(() => {
                 <button
                   type="button"
                   class="clientes__acao-btn"
+                  aria-label="Histórico de documentos"
+                  title="Histórico de documentos"
+                  @click="visualizarHistorico(cliente)"
+                >
+                  <AppIcon name="file-text" :size="16" />
+                </button>
+                <button
+                  type="button"
+                  class="clientes__acao-btn"
                   aria-label="Editar cliente"
                   title="Editar"
                   @click="editarCliente(cliente)"
@@ -267,6 +282,13 @@ onMounted(() => {
       :id-cliente="documentoCliente.id"
       :titulo="`Documento de ${documentoCliente.nome}`"
       @fechar="documentoCliente = null"
+    />
+
+    <DocumentoHistoricoModal
+      v-if="historicoCliente"
+      :id-cliente="historicoCliente.id"
+      :titulo="`Documentos de ${historicoCliente.nome}`"
+      @fechar="historicoCliente = null"
     />
   </div>
 </template>

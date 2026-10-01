@@ -38,6 +38,15 @@ export interface DocumentoIdentidadeDTO {
   tamanho: number
 }
 
+export interface DocumentoHistoricoDTO {
+  id: string
+  nomeArquivo: string
+  contentType: string
+  tamanho: number
+  salvoEm: string
+  atual: boolean
+}
+
 export interface ClienteResponseDTO {
   id: string
   estado: EstadoEntity

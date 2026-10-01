@@ -1,5 +1,6 @@
+import { salvarArquivo } from '../lib/arquivo'
 import { http } from '../lib/http'
-import type { ClienteCreateDTO, ClienteResponseDTO, PageResponse } from '../types/api'
+import type { ClienteCreateDTO, ClienteResponseDTO, DocumentoHistoricoDTO, PageResponse } from '../types/api'
 
 export interface ClienteFiltro {
   idEstado?: string
@@ -40,6 +41,20 @@ export const clienteService = {
 
   obterDocumento(id: string) {
     return http.download(`/v1/cliente/${id}/documento`)
+  },
+
+  listarDocumentos(id: string, pagina: number, tamanho: number) {
+    const params = new URLSearchParams({ page: String(pagina), size: String(tamanho) })
+    return http.get<PageResponse<DocumentoHistoricoDTO>>(`/v1/cliente/${id}/documentos?${params}`)
+  },
+
+  obterDocumentoHistorico(id: string, idDocumento: string) {
+    return http.download(`/v1/cliente/${id}/documentos/${idDocumento}`)
+  },
+
+  async baixarDocumentoHistorico(id: string, idDocumento: string, nomeSugerido = 'documento') {
+    const { blob, nomeArquivo } = await http.download(`/v1/cliente/${id}/documentos/${idDocumento}`)
+    salvarArquivo(blob, nomeArquivo ?? nomeSugerido)
   },
 
   excluir(id: string) {
