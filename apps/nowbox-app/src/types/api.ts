@@ -31,6 +31,13 @@ export interface EstadoEntity {
   uf: string
 }
 
+export interface DocumentoIdentidadeDTO {
+  id: string
+  nomeArquivo: string
+  contentType: string
+  tamanho: number
+}
+
 export interface ClienteResponseDTO {
   id: string
   estado: EstadoEntity
@@ -49,6 +56,7 @@ export interface ClienteResponseDTO {
   cep: string
   cidade: string
   enderecoCorrespondencia?: boolean
+  documentoIdentidade?: DocumentoIdentidadeDTO
   senhaTemporariaStatus?: boolean
   createdAt?: string
   deletedAt?: string
