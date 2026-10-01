@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-// Consome as solicitacoes de contrato, gera o PDF e grava no MinIO e registra a referencia do arquivo no banco
+// Consome as solicitacoes de contrato original ou de aditivo, gera o PDF, grava no MinIO e registra a referencia do arquivo no banco
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -24,13 +24,15 @@ public class ContratoWorker {
 
     @RabbitListener(queues = ContratoMessagingConfig.FILA_SOLICITADO)
     public void processar(ContratoSolicitadoMessage solicitacao) {
-        log.info("Gerando contrato do aluguel {} (solicitacao {})", solicitacao.idAluguel(), solicitacao.idSolicitacao());
+        log.info("Gerando {} do aluguel {} (solicitacao {})", solicitacao.aditivo() ? "aditivo" : "contrato", solicitacao.idAluguel(), solicitacao.idSolicitacao());
 
         byte[] pdf = pdfGenerator.gerar(solicitacao);
         LocalDateTime geradoEm = LocalDateTime.now();
 
-        String chave = "contratos/%s/%s/%s.pdf".formatted(solicitacao.idUnidade(), solicitacao.idAluguel(), solicitacao.idSolicitacao());
-        String nomeArquivo = "contrato-teste-box-%s-%s.pdf".formatted(solicitacao.numeroBox(), CARIMBO.format(geradoEm));
+        String chave = (solicitacao.aditivo() ? "contratos/%s/%s/aditivos/%s.pdf" : "contratos/%s/%s/%s.pdf")
+                .formatted(solicitacao.idUnidade(), solicitacao.idAluguel(), solicitacao.idSolicitacao());
+        String nomeArquivo = (solicitacao.aditivo() ? "aditivo-contrato-teste-box-%s-%s.pdf" : "contrato-teste-box-%s-%s.pdf")
+                .formatted(solicitacao.numeroBox(), CARIMBO.format(geradoEm));
 
         storageService.gravar(chave, pdf, CONTENT_TYPE_PDF);
 
@@ -38,6 +40,6 @@ public class ContratoWorker {
         boolean registrado = contratoRepository.registrar(solicitacao, storageService.getBucketContratos(), chave, nomeArquivo,
                 CONTENT_TYPE_PDF, pdf.length, geradoEm);
 
-        log.info(registrado ? "Contrato do aluguel {} gravado em {}" : "Contrato do aluguel {} ja estava registrado em {}", solicitacao.idAluguel(), chave);
+        log.info(registrado ? "Documento do aluguel {} gravado em {}" : "Documento do aluguel {} ja estava registrado em {}", solicitacao.idAluguel(), chave);
     }
 }

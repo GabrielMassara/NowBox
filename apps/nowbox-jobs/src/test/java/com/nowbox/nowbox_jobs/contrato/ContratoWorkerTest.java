@@ -54,6 +54,23 @@ class ContratoWorkerTest {
     }
 
     @Test
+    @DisplayName("Should store the aditivo under its own key and name so it never replaces the original contrato")
+    void processarAditivo() {
+        ContratoSolicitadoMessage solicitacao = ContratoPdfGeneratorTest.aditivo();
+        byte[] pdf = {1, 2};
+        when(pdfGenerator.gerar(solicitacao)).thenReturn(pdf);
+        when(storageService.getBucketContratos()).thenReturn("nowbox-contratos");
+        when(contratoRepository.registrar(any(), anyString(), anyString(), anyString(), anyString(), anyLong(), any())).thenReturn(true);
+
+        worker.processar(solicitacao);
+
+        String chaveEsperada = "contratos/%s/%s/aditivos/%s.pdf".formatted(solicitacao.idUnidade(), solicitacao.idAluguel(), solicitacao.idSolicitacao());
+        verify(storageService).gravar(chaveEsperada, pdf, "application/pdf");
+        verify(contratoRepository).registrar(eq(solicitacao), eq("nowbox-contratos"), eq(chaveEsperada),
+                startsWith("aditivo-contrato-teste-box-101-"), eq("application/pdf"), eq((long) pdf.length), any(LocalDateTime.class));
+    }
+
+    @Test
     @DisplayName("Should not register the arquivo when storing the PDF fails, so the message is retried")
     void processarCase2() {
         ContratoSolicitadoMessage solicitacao = ContratoPdfGeneratorTest.solicitacao(true);

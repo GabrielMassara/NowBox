@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -25,8 +26,8 @@ class ContratoPdfGeneratorTest {
                 "Maria da Silva", "Engenheira", "12345678901", "MG1234567", "Rua das Flores", "123", null,
                 "Centro", "30123456", "Belo Horizonte", "MG", "31999998888", "maria@email.com", usarEnderecoParaCorrespondencia);
 
-        return new ContratoSolicitadoMessage(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                "101", "12345678000199", new BigDecimal("1234.50"), LocalDate.of(2026, 9, 28), contratante);
+        return new ContratoSolicitadoMessage(UUID.randomUUID(), ContratoSolicitadoMessage.Tipo.CONTRATO, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                "101", "12345678000199", new BigDecimal("1234.50"), LocalDate.of(2026, 9, 28), LocalDate.of(2026, 9, 28), List.of(), contratante);
     }
 
     @Test
@@ -74,6 +75,25 @@ class ContratoPdfGeneratorTest {
                 .containsEntry("numero", "101");
         assertThat((String) parametros.get("valor")).contains("1.234,50");
         assertThat((String) parametros.get("endereco_correspondecia")).contains("Rua das Flores, 123").contains("Belo Horizonte/MG");
+    }
+
+    static ContratoSolicitadoMessage aditivo() {
+        ContratoSolicitadoMessage base = solicitacao(true);
+        return new ContratoSolicitadoMessage(base.idSolicitacao(), ContratoSolicitadoMessage.Tipo.ADITIVO, base.idAluguel(), base.idBox(),
+                base.idUnidade(), base.numeroBox(), base.cnpjLocadora(), base.valor(), LocalDate.of(2026, 10, 5), LocalDate.of(2026, 9, 28),
+                List.of(new ContratoSolicitadoMessage.Alteracao("Valor", "R$ 100,00", "R$ 120,00"),
+                        new ContratoSolicitadoMessage.Alteracao("Situação", "Ativo", "Inativo")),
+                base.contratante());
+    }
+
+    @Test
+    @DisplayName("Should send the original contrato date and the changes, one per line, as report parameters of the aditivo")
+    void montarParametrosAditivo() {
+        Map<String, Object> parametros = generator.montarParametros(aditivo());
+
+        assertThat(parametros).containsEntry("contratoOriginal", "28 de setembro de 2026")
+                .containsEntry("assinatura", "5 de outubro de 2026")
+                .containsEntry("alteracoes", "Valor: R$ 100,00 → R$ 120,00\nSituação: Ativo → Inativo");
     }
 
     @Test

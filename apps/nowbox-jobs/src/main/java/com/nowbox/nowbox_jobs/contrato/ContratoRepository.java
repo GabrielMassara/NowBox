@@ -8,14 +8,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-// Registra a referencia do contrato gravado no MinIO
+// Registra a referencia do documento gravado no MinIO. O contrato original e referenciado direto no aluguel
+// e os aditivos entram em tb_arquivo_aluguel
 @Repository
 @RequiredArgsConstructor
 public class ContratoRepository {
 
     private final JdbcClient jdbc;
 
-    // Retorna false quando a chave ja estava registrada sem duplicar o contrato
+    // Retorna false quando a chave ja estava registrada sem duplicar o documento
     @Transactional
     public boolean registrar(ContratoSolicitadoMessage solicitacao, String bucket, String chave, String nomeArquivo,
                              String contentType, long tamanho, LocalDateTime salvoEm) {
@@ -38,17 +39,33 @@ public class ContratoRepository {
             return false;
         }
 
+        if (solicitacao.aditivo()) {
+            registrarAditivo(solicitacao, idArquivo, salvoEm);
+        } else {
+            registrarContrato(solicitacao, idArquivo);
+        }
+
+        return true;
+    }
+
+    private void registrarContrato(ContratoSolicitadoMessage solicitacao, UUID idArquivo) {
+        jdbc.sql("UPDATE tb_aluguel SET id_arquivo_contrato = :idArquivo WHERE id = :idAluguel")
+                .param("idArquivo", idArquivo)
+                .param("idAluguel", solicitacao.idAluguel())
+                .update();
+    }
+
+    private void registrarAditivo(ContratoSolicitadoMessage solicitacao, UUID idArquivo, LocalDateTime salvoEm) {
         jdbc.sql("""
-                        INSERT INTO tb_arquivo_aluguel (id, id_arquivo, id_aluguel, id_box, salvo_em)
-                        VALUES (:id, :idArquivo, :idAluguel, :idBox, :salvoEm)
+                        INSERT INTO tb_arquivo_aluguel (id, id_arquivo, id_aluguel, id_box, descricao, salvo_em)
+                        VALUES (:id, :idArquivo, :idAluguel, :idBox, :descricao, :salvoEm)
                         """)
                 .param("id", UUID.randomUUID())
                 .param("idArquivo", idArquivo)
                 .param("idAluguel", solicitacao.idAluguel())
                 .param("idBox", solicitacao.idBox())
+                .param("descricao", solicitacao.descricaoAlteracoes())
                 .param("salvoEm", salvoEm)
                 .update();
-
-        return true;
     }
 }

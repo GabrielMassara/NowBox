@@ -27,8 +27,9 @@ class ContratoMessagingConfigTest {
 
         // JSON exatamente como a nowbox-api publica com o record ContratoSolicitadoMessage
         String json = """
-                {"idSolicitacao":"%s","idAluguel":"%s","idBox":"%s","idUnidade":"%s","numeroBox":"101",
-                 "cnpjLocadora":"12345678000199","valor":1234.50,"dataAssinatura":"2026-09-28",
+                {"idSolicitacao":"%s","tipo":"ADITIVO","idAluguel":"%s","idBox":"%s","idUnidade":"%s","numeroBox":"101",
+                 "cnpjLocadora":"12345678000199","valor":1234.50,"dataAssinatura":"2026-09-28","dataContratoOriginal":"2026-01-10",
+                 "alteracoes":[{"campo":"Valor","valorAnterior":"R$ 100,00","valorNovo":"R$ 120,00"}],
                  "contratante":{"nome":"Maria","profissao":"Engenheira","cpf":"12345678901","rg":"MG1","endereco":"Rua 1",
                  "numeroEndereco":"10","complemento":null,"bairro":"Centro","cep":"30123456","cidade":"BH","uf":"MG",
                  "telefone":"3199","email":"m@e.com","usarEnderecoParaCorrespondencia":true}}
@@ -50,6 +51,9 @@ class ContratoMessagingConfigTest {
         assertThat(solicitacao.numeroBox()).isEqualTo("101");
         assertThat(solicitacao.valor()).isEqualByComparingTo(new BigDecimal("1234.50"));
         assertThat(solicitacao.dataAssinatura()).isEqualTo(LocalDate.of(2026, 9, 28));
+        assertThat(solicitacao.tipo()).isEqualTo(ContratoSolicitadoMessage.Tipo.ADITIVO);
+        assertThat(solicitacao.dataContratoOriginal()).isEqualTo(LocalDate.of(2026, 1, 10));
+        assertThat(solicitacao.alteracoes()).containsExactly(new ContratoSolicitadoMessage.Alteracao("Valor", "R$ 100,00", "R$ 120,00"));
         assertThat(solicitacao.contratante().nome()).isEqualTo("Maria");
         assertThat(solicitacao.contratante().complemento()).isNull();
         assertThat(solicitacao.contratante().usarEnderecoParaCorrespondencia()).isTrue();

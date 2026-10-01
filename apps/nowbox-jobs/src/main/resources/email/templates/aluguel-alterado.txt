@@ -1,14 +1,15 @@
 Olá, {{nome}}!
 
-Seu aluguel foi alterado. Confira abaixo os dados atualizados.
+Um aditivo foi feito no contrato do seu aluguel. Confira abaixo as alterações e os dados atualizados.
 
 Box: {{numeroBox}}
 Unidade: {{unidade}}
 Valor: {{valor}}
 Situação: {{situacao}}
+Alterações: {{alteracoes}}
 Data da alteração: {{data}}
 
-Um novo contrato será emitido com os dados atualizados.
+O contrato original continua válido. O aditivo com as alterações acima será emitido e ficará disponível para você.
 Em caso de dúvidas, é só responder este e-mail.
 
 (c) {{ano}} NowBox
