@@ -5,7 +5,11 @@ import com.nowbox.nowbox_api.common.exception.RequisicaoInvalidaException;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteCreateDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteFilterDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteResponseDTO;
+import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoDownloadDTO;
+import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoHistoricoDTO;
+import com.nowbox.nowbox_api.modules.cliente.entity.ArquivoClienteEntity;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
+import com.nowbox.nowbox_api.modules.cliente.repository.IArquivoClienteRepository;
 import com.nowbox.nowbox_api.modules.cliente.repository.IClienteRepository;
 import com.nowbox.nowbox_api.modules.cliente.storage.DocumentoStorageService;
 import com.nowbox.nowbox_api.modules.contrato.entity.ArquivoEntity;
@@ -20,8 +24,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.mock.web.MockMultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -50,6 +56,9 @@ class ClienteServiceTest {
 
     @Mock
     private IArquivoRepository arquivoRepository;
+
+    @Mock
+    private IArquivoClienteRepository arquivoClienteRepository;
 
     @Mock
     private DocumentoStorageService documentoStorageService;
@@ -258,6 +267,9 @@ class ClienteServiceTest {
 
         // verifica se gravou o documento direto no storage, sem fila
         verify(documentoStorageService).salvar(argThat(c -> c.startsWith("clientes/documentos-identidade/") && c.endsWith(".pdf")), any(), anyLong(), eq("application/pdf"));
+
+        // verifica se o documento entrou no historico do cliente
+        verify(arquivoClienteRepository).save(argThat(h -> h.getCliente() == entidadeSalva && h.getArquivo().getContentType().equals("application/pdf") && h.getSalvoEm() != null));
     }
 
     @Test
@@ -352,10 +364,11 @@ class ClienteServiceTest {
         verify(clienteRepository).save(argThat(e -> e.getId().equals(id) && e.getNome().equals("Cliente Atualizado") && e.getEstado().equals(estado)
                 && e.getDocumentoIdentidade() != documentoAntigo));
 
-        // verifica se gravou o novo documento e apagou o registro e o objeto antigos (sem transacao ativa, a remocao e imediata)
+        // verifica se gravou o novo documento no historico e manteve o antigo registrado e no storage
         verify(documentoStorageService).salvar(anyString(), any(), anyLong(), eq("application/pdf"));
-        verify(arquivoRepository).delete(documentoAntigo);
-        verify(documentoStorageService).remover("clientes/documentos-identidade/antigo.pdf");
+        verify(arquivoClienteRepository).save(argThat(h -> h.getCliente() == entidadeAtualizada && h.getArquivo() != documentoAntigo));
+        verify(arquivoRepository, never()).delete(any());
+        verify(documentoStorageService, never()).remover(anyString());
     }
 
     @Test
@@ -381,6 +394,7 @@ class ClienteServiceTest {
         verify(documentoStorageService, never()).salvar(anyString(), any(), anyLong(), anyString());
         verify(documentoStorageService, never()).remover(anyString());
         verify(arquivoRepository, never()).delete(any());
+        verify(arquivoClienteRepository, never()).save(any());
     }
 
     @Test
@@ -465,5 +479,66 @@ class ClienteServiceTest {
 
         // verifica se nunca chegou a salvar, ja que o cliente nao existe
         verify(clienteRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should list the documentos history of a cliente marking the current one")
+    void listDocumentosCase1() {
+        UUID id = UUID.randomUUID();
+        ArquivoEntity atual = ArquivoEntity.builder().id(UUID.randomUUID()).nomeOriginal("novo.pdf").contentType("application/pdf").tamanho(20L).build();
+        ArquivoEntity antigo = ArquivoEntity.builder().id(UUID.randomUUID()).nomeOriginal("antigo.pdf").contentType("application/pdf").tamanho(10L).build();
+        ClienteEntity cliente = ClienteEntity.builder().id(id).documentoIdentidade(atual).build();
+        when(clienteRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(cliente));
+
+        LocalDateTime agora = LocalDateTime.now();
+        PageRequest pageable = PageRequest.of(0, 10);
+        when(arquivoClienteRepository.findByClienteIdOrderBySalvoEmDesc(id, pageable)).thenReturn(new PageImpl<>(List.of(
+                ArquivoClienteEntity.builder().id(UUID.randomUUID()).arquivo(atual).cliente(cliente).salvoEm(agora).build(),
+                ArquivoClienteEntity.builder().id(UUID.randomUUID()).arquivo(antigo).cliente(cliente).salvoEm(agora.minusDays(1)).build())));
+
+        Page<DocumentoHistoricoDTO> result = clienteService.listDocumentos(pageable, id);
+
+        assertThat(result.getContent()).extracting(DocumentoHistoricoDTO::nomeArquivo).containsExactly("novo.pdf", "antigo.pdf");
+        assertThat(result.getContent()).extracting(DocumentoHistoricoDTO::atual).containsExactly(true, false);
+    }
+
+    @Test
+    @DisplayName("Should throw exception when listing documentos of a cliente that does not exist")
+    void listDocumentosCase2() {
+        UUID id = UUID.randomUUID();
+        when(clienteRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.empty());
+
+        assertThrows(NaoEncontradoException.class, () -> clienteService.listDocumentos(PageRequest.of(0, 10), id));
+
+        verify(arquivoClienteRepository, never()).findByClienteIdOrderBySalvoEmDesc(any(), any());
+    }
+
+    @Test
+    @DisplayName("Should download a documento of the history")
+    void downloadHistoricoCase1() {
+        UUID id = UUID.randomUUID();
+        UUID idDocumento = UUID.randomUUID();
+        ArquivoEntity arquivo = ArquivoEntity.builder().id(UUID.randomUUID()).chave("clientes/documentos-identidade/antigo.pdf").nomeOriginal("antigo.pdf").contentType("application/pdf").tamanho(10L).build();
+        when(clienteRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(ClienteEntity.builder().id(id).build()));
+        when(arquivoClienteRepository.findByIdAndClienteId(idDocumento, id)).thenReturn(Optional.of(ArquivoClienteEntity.builder().id(idDocumento).arquivo(arquivo).build()));
+        when(documentoStorageService.abrir("clientes/documentos-identidade/antigo.pdf")).thenReturn(new ByteArrayInputStream(new byte[]{1}));
+
+        DocumentoDownloadDTO result = clienteService.downloadHistorico(id, idDocumento);
+
+        assertThat(result.nomeArquivo()).isEqualTo("antigo.pdf");
+        assertThat(result.contentType()).isEqualTo("application/pdf");
+    }
+
+    @Test
+    @DisplayName("Should throw exception when the documento does not belong to the cliente")
+    void downloadHistoricoCase2() {
+        UUID id = UUID.randomUUID();
+        UUID idDocumento = UUID.randomUUID();
+        when(clienteRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(ClienteEntity.builder().id(id).build()));
+        when(arquivoClienteRepository.findByIdAndClienteId(idDocumento, id)).thenReturn(Optional.empty());
+
+        assertThrows(NaoEncontradoException.class, () -> clienteService.downloadHistorico(id, idDocumento));
+
+        verify(documentoStorageService, never()).abrir(anyString());
     }
 }
