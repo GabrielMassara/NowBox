@@ -1,11 +1,15 @@
 package com.nowbox.nowbox_api.modules.cliente.service;
 
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
+import com.nowbox.nowbox_api.common.exception.RequisicaoInvalidaException;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteCreateDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteFilterDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteResponseDTO;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
 import com.nowbox.nowbox_api.modules.cliente.repository.IClienteRepository;
+import com.nowbox.nowbox_api.modules.cliente.storage.DocumentoStorageService;
+import com.nowbox.nowbox_api.modules.contrato.entity.ArquivoEntity;
+import com.nowbox.nowbox_api.modules.contrato.repository.IArquivoRepository;
 import com.nowbox.nowbox_api.modules.estado.entity.EstadoEntity;
 import com.nowbox.nowbox_api.modules.estado.repository.IEstadoRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -26,7 +31,10 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,6 +47,17 @@ class ClienteServiceTest {
 
     @Mock
     private IEstadoRepository estadoRepository;
+
+    @Mock
+    private IArquivoRepository arquivoRepository;
+
+    @Mock
+    private DocumentoStorageService documentoStorageService;
+
+    // Documento valido (cabecalho de PDF) para os cenarios de cadastro
+    private MockMultipartFile documentoPdf() {
+        return new MockMultipartFile("documento", "rg.pdf", "application/pdf", "%PDF-1.4 conteudo".getBytes());
+    }
 
     @InjectMocks
     private ClienteService clienteService;
@@ -219,8 +238,11 @@ class ClienteServiceTest {
                 .build();
         when(clienteRepository.save(any(ClienteEntity.class))).thenReturn(entidadeSalva);
 
+        // Mock para simular o registro do arquivo
+        when(arquivoRepository.save(any(ArquivoEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
         // chama a funcao create
-        ClienteResponseDTO result = clienteService.create(cliente);
+        ClienteResponseDTO result = clienteService.create(cliente, documentoPdf());
 
         assertThat(result.getId()).isEqualTo(id);
         assertThat(result.getNome()).isEqualTo("Cliente Test");
@@ -231,7 +253,39 @@ class ClienteServiceTest {
         verify(estadoRepository).findById(idEstado);
 
         // verifica se ao chamar o save ele passou uma entidade com os dados corretos
-        verify(clienteRepository).save(argThat(e -> e.getNome().equals("Cliente Test") && e.getCpf().equals("12345678901") && e.getEstado().equals(estado)));
+        verify(clienteRepository).save(argThat(e -> e.getNome().equals("Cliente Test") && e.getCpf().equals("12345678901") && e.getEstado().equals(estado)
+                && e.getDocumentoIdentidade() != null && e.getDocumentoIdentidade().getContentType().equals("application/pdf")));
+
+        // verifica se gravou o documento direto no storage, sem fila
+        verify(documentoStorageService).salvar(argThat(c -> c.startsWith("clientes/documentos-identidade/") && c.endsWith(".pdf")), any(), anyLong(), eq("application/pdf"));
+    }
+
+    @Test
+    @DisplayName("Should throw exception when creating cliente without documento")
+    void createCase3() {
+        ClienteCreateDTO cliente = ClienteCreateDTO.builder().idEstado(UUID.randomUUID()).nome("Cliente Test").build();
+
+        // sem arquivo e com arquivo vazio
+        assertThrows(RequisicaoInvalidaException.class, () -> clienteService.create(cliente, null));
+        assertThrows(RequisicaoInvalidaException.class, () -> clienteService.create(cliente, new MockMultipartFile("documento", "rg.pdf", "application/pdf", new byte[0])));
+
+        // nada deve ser gravado
+        verify(documentoStorageService, never()).salvar(anyString(), any(), anyLong(), anyString());
+        verify(clienteRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw exception when creating cliente with documento that is not an image or pdf")
+    void createCase4() {
+        ClienteCreateDTO cliente = ClienteCreateDTO.builder().idEstado(UUID.randomUUID()).nome("Cliente Test").build();
+
+        // o content-type informado e pdf, mas o conteudo nao e
+        MockMultipartFile falso = new MockMultipartFile("documento", "rg.pdf", "application/pdf", "<html>nao e pdf</html>".getBytes());
+
+        assertThrows(RequisicaoInvalidaException.class, () -> clienteService.create(cliente, falso));
+
+        verify(documentoStorageService, never()).salvar(anyString(), any(), anyLong(), anyString());
+        verify(clienteRepository, never()).save(any());
     }
 
     @Test
@@ -247,13 +301,14 @@ class ClienteServiceTest {
         when(estadoRepository.findById(idEstado)).thenReturn(Optional.empty());
 
         // chama a funcao create e verifica se lanca a excecao esperada
-        assertThrows(NaoEncontradoException.class, () -> clienteService.create(cliente));
+        assertThrows(NaoEncontradoException.class, () -> clienteService.create(cliente, documentoPdf()));
 
         // verifica se buscou o estado antes de tentar criar
         verify(estadoRepository).findById(idEstado);
 
         // verifica se nunca chegou a salvar, ja que o estado nao existe
         verify(clienteRepository, never()).save(any());
+        verify(documentoStorageService, never()).salvar(anyString(), any(), anyLong(), anyString());
     }
 
     @Test
@@ -268,8 +323,10 @@ class ClienteServiceTest {
 
         // Mock para simular que o cliente existe
         EstadoEntity estadoAntigo = EstadoEntity.builder().nome("Estado Old").uf("YY").build();
-        ClienteEntity entidadeExistente = ClienteEntity.builder().id(id).nome("Cliente Test").enderecoCorrespondencia(true).estado(estadoAntigo).createdAt(LocalDateTime.now()).build();
+        ArquivoEntity documentoAntigo = ArquivoEntity.builder().id(UUID.randomUUID()).chave("clientes/documentos-identidade/antigo.pdf").build();
+        ClienteEntity entidadeExistente = ClienteEntity.builder().id(id).nome("Cliente Test").enderecoCorrespondencia(true).estado(estadoAntigo).documentoIdentidade(documentoAntigo).createdAt(LocalDateTime.now()).build();
         when(clienteRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
+        when(arquivoRepository.save(any(ArquivoEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // Mock para simular que o estado existe
         EstadoEntity estado = EstadoEntity.builder().id(idEstado).nome("Estado Test").uf("XX").build();
@@ -280,7 +337,7 @@ class ClienteServiceTest {
         when(clienteRepository.save(any(ClienteEntity.class))).thenReturn(entidadeAtualizada);
 
         // chama a funcao update
-        ClienteResponseDTO result = clienteService.update(cliente, id);
+        ClienteResponseDTO result = clienteService.update(cliente, documentoPdf(), id);
 
         assertThat(result.getId()).isEqualTo(id);
         assertThat(result.getNome()).isEqualTo("Cliente Atualizado");
@@ -292,7 +349,38 @@ class ClienteServiceTest {
         verify(estadoRepository).findById(idEstado);
 
         // verifica se salvou a entidade com os dados atualizados
-        verify(clienteRepository).save(argThat(e -> e.getId().equals(id) && e.getNome().equals("Cliente Atualizado") && e.getEstado().equals(estado)));
+        verify(clienteRepository).save(argThat(e -> e.getId().equals(id) && e.getNome().equals("Cliente Atualizado") && e.getEstado().equals(estado)
+                && e.getDocumentoIdentidade() != documentoAntigo));
+
+        // verifica se gravou o novo documento e apagou o registro e o objeto antigos (sem transacao ativa, a remocao e imediata)
+        verify(documentoStorageService).salvar(anyString(), any(), anyLong(), eq("application/pdf"));
+        verify(arquivoRepository).delete(documentoAntigo);
+        verify(documentoStorageService).remover("clientes/documentos-identidade/antigo.pdf");
+    }
+
+    @Test
+    @DisplayName("Should keep the current documento when updating cliente without a new one")
+    void updateCase4() {
+        UUID id = UUID.randomUUID();
+        UUID idEstado = UUID.randomUUID();
+        ClienteCreateDTO cliente = ClienteCreateDTO.builder().idEstado(idEstado).nome("Cliente Atualizado").build();
+
+        EstadoEntity estado = EstadoEntity.builder().id(idEstado).nome("Estado Test").uf("XX").build();
+        ArquivoEntity documentoAtual = ArquivoEntity.builder().id(UUID.randomUUID()).chave("clientes/documentos-identidade/atual.pdf").nomeOriginal("rg.pdf").contentType("application/pdf").tamanho(10L).build();
+        ClienteEntity entidadeExistente = ClienteEntity.builder().id(id).nome("Cliente Test").estado(estado).documentoIdentidade(documentoAtual).build();
+        when(clienteRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
+        when(estadoRepository.findById(idEstado)).thenReturn(Optional.of(estado));
+        when(clienteRepository.save(any(ClienteEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ClienteResponseDTO result = clienteService.update(cliente, null, id);
+
+        assertThat(result.getDocumentoIdentidade().id()).isEqualTo(documentoAtual.getId());
+
+        // nada e gravado nem apagado no storage
+        verify(clienteRepository).save(argThat(e -> e.getDocumentoIdentidade() == documentoAtual));
+        verify(documentoStorageService, never()).salvar(anyString(), any(), anyLong(), anyString());
+        verify(documentoStorageService, never()).remover(anyString());
+        verify(arquivoRepository, never()).delete(any());
     }
 
     @Test
@@ -306,7 +394,7 @@ class ClienteServiceTest {
         when(clienteRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.empty());
 
         // chama a funcao update e verifica se lanca a excecao esperada
-        assertThrows(NaoEncontradoException.class, () -> clienteService.update(cliente, id));
+        assertThrows(NaoEncontradoException.class, () -> clienteService.update(cliente, null, id));
 
         // verifica se buscou o cliente antes de tentar atualizar
         verify(clienteRepository).findByIdAndDeletedAtIsNull(id);
@@ -333,7 +421,7 @@ class ClienteServiceTest {
         when(estadoRepository.findById(idEstado)).thenReturn(Optional.empty());
 
         // chama a funcao update e verifica se lanca a excecao esperada
-        assertThrows(NaoEncontradoException.class, () -> clienteService.update(cliente, id));
+        assertThrows(NaoEncontradoException.class, () -> clienteService.update(cliente, null, id));
 
         // verifica se buscou o cliente e o estado antes de tentar atualizar
         verify(clienteRepository).findByIdAndDeletedAtIsNull(id);
