@@ -48,6 +48,7 @@ services:
       MINIO_APP_ACCESS_KEY: ${MINIO_APP_ACCESS_KEY:?defina MINIO_APP_ACCESS_KEY no .env}
       MINIO_APP_SECRET_KEY: ${MINIO_APP_SECRET_KEY:?defina MINIO_APP_SECRET_KEY no .env}
       MINIO_BUCKET_CONTRATOS: ${MINIO_BUCKET_CONTRATOS:-nowbox-contratos}
+      MINIO_BUCKET_DOCUMENTOS: ${MINIO_BUCKET_DOCUMENTOS:-nowbox-documentos}
       MINIO_JOBS_ACCESS_KEY: ${MINIO_JOBS_ACCESS_KEY:?defina MINIO_JOBS_ACCESS_KEY no .env}
       MINIO_JOBS_SECRET_KEY: ${MINIO_JOBS_SECRET_KEY:?defina MINIO_JOBS_SECRET_KEY no .env}
       MINIO_API_ACCESS_KEY: ${MINIO_API_ACCESS_KEY:?defina MINIO_API_ACCESS_KEY no .env}
@@ -92,6 +93,18 @@ services:
         mc admin policy create local nowbox-contratos-leitura /tmp/contratos-leitura.json
         mc admin user add local "$$MINIO_API_ACCESS_KEY" "$$MINIO_API_SECRET_KEY"
         mc admin policy attach local nowbox-contratos-leitura --user "$$MINIO_API_ACCESS_KEY" || true
+
+        mc mb --ignore-existing "local/$$MINIO_BUCKET_DOCUMENTOS"
+        mc anonymous set none "local/$$MINIO_BUCKET_DOCUMENTOS"
+
+        cat > /tmp/documentos-api.json <<EOF
+        {"Version":"2012-10-17","Statement":[
+          {"Effect":"Allow","Action":["s3:ListBucket","s3:GetBucketLocation"],"Resource":["arn:aws:s3:::$$MINIO_BUCKET_DOCUMENTOS"]},
+          {"Effect":"Allow","Action":["s3:GetObject","s3:PutObject","s3:DeleteObject"],"Resource":["arn:aws:s3:::$$MINIO_BUCKET_DOCUMENTOS/*"]}
+        ]}
+        EOF
+        mc admin policy create local nowbox-documentos-api /tmp/documentos-api.json
+        mc admin policy attach local nowbox-documentos-api --user "$$MINIO_API_ACCESS_KEY" || true
 
 volumes:
   minio-data:
