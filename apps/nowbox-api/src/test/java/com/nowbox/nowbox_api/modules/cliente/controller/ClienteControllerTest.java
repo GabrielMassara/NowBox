@@ -6,6 +6,8 @@ import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
 import com.nowbox.nowbox_api.common.exception.RequisicaoInvalidaException;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteCreateDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteResponseDTO;
+import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoDownloadDTO;
+import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoHistoricoDTO;
 import com.nowbox.nowbox_api.modules.cliente.service.ClienteService;
 import com.nowbox.nowbox_api.modules.estado.entity.EstadoEntity;
 import org.junit.jupiter.api.DisplayName;
@@ -21,7 +23,9 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.io.ByteArrayInputStream;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -227,5 +231,41 @@ class ClienteControllerTest {
 
         // verifica se o service foi chamado com o id correto
         verify(clienteService).delete(id);
+    }
+
+    @Test
+    @DisplayName("Should list the documentos history of a cliente with status 200")
+    void listDocumentos() throws Exception {
+        UUID id = UUID.randomUUID();
+        Page<DocumentoHistoricoDTO> page = new PageImpl<>(List.of(
+                new DocumentoHistoricoDTO(UUID.randomUUID(), "rg.pdf", "application/pdf", 10L, LocalDateTime.now(), true)));
+        when(clienteService.listDocumentos(any(), eq(id))).thenReturn(page);
+
+        mockMvc.perform(get("/v1/cliente/{id}/documentos", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].nomeArquivo").value("rg.pdf"))
+                .andExpect(jsonPath("$.content[0].atual").value(true));
+    }
+
+    @Test
+    @DisplayName("Should return status 404 when listing documentos of a cliente that does not exist")
+    void listDocumentosNotFound() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(clienteService.listDocumentos(any(), eq(id))).thenThrow(new NaoEncontradoException("Cliente não encontrado"));
+
+        mockMvc.perform(get("/v1/cliente/{id}/documentos", id))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Should download a documento of the history with status 200")
+    void downloadHistorico() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID idDocumento = UUID.randomUUID();
+        when(clienteService.downloadHistorico(id, idDocumento)).thenReturn(new DocumentoDownloadDTO("rg.pdf", "application/pdf", 3L, new ByteArrayInputStream(new byte[]{1, 2, 3})));
+
+        mockMvc.perform(get("/v1/cliente/{id}/documentos/{idDocumento}", id, idDocumento))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/pdf"));
     }
 }

@@ -6,8 +6,11 @@ import com.nowbox.nowbox_api.modules.cliente.dto.ClienteCreateDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteFilterDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteResponseDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoDownloadDTO;
+import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoHistoricoDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoIdentidadeDTO;
+import com.nowbox.nowbox_api.modules.cliente.entity.ArquivoClienteEntity;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
+import com.nowbox.nowbox_api.modules.cliente.repository.IArquivoClienteRepository;
 import com.nowbox.nowbox_api.modules.cliente.repository.IClienteRepository;
 import com.nowbox.nowbox_api.modules.cliente.storage.DocumentoStorageService;
 import com.nowbox.nowbox_api.modules.contrato.entity.ArquivoEntity;
@@ -37,6 +40,7 @@ public class ClienteService {
     private final IClienteRepository clienteRepository;
     private final IEstadoRepository estadoRepository;
     private final IArquivoRepository arquivoRepository;
+    private final IArquivoClienteRepository arquivoClienteRepository;
     private final DocumentoStorageService documentoStorageService;
 
     public Page<ClienteResponseDTO> listAllByFilter(Pageable pageable, ClienteFilterDTO filtro) {
@@ -113,6 +117,8 @@ public class ClienteService {
                 .senhaTemporariaStatus(cliente.getSenhaTemporariaStatus())
                 .build());
 
+        registrarHistorico(arquivo, created);
+
         return toResponseDTO(created);
     }
 
@@ -162,10 +168,9 @@ public class ClienteService {
                 .createdAt(existente.get().getCreatedAt())
                 .build());
 
-        // Documento substituído: o antigo deixa de ser referenciado e é apagado do MinIO depois do commit
+        // Documento substituído: o novo entra no histórico e o antigo permanece guardado no MinIO
         if(arquivo != documentoAnterior) {
-            arquivoRepository.delete(documentoAnterior);
-            executarAposCommit(() -> documentoStorageService.remover(documentoAnterior.getChave()));
+            registrarHistorico(arquivo, updated);
         }
 
         return toResponseDTO(updated);
@@ -179,6 +184,31 @@ public class ClienteService {
         if(arquivo == null) {
             throw new NaoEncontradoException("Cliente sem documento de identidade");
         }
+
+        return new DocumentoDownloadDTO(
+                arquivo.getNomeOriginal(),
+                arquivo.getContentType(),
+                arquivo.getTamanho(),
+                documentoStorageService.abrir(arquivo.getChave()));
+    }
+
+    public Page<DocumentoHistoricoDTO> listDocumentos(Pageable pageable, UUID id) throws NaoEncontradoException {
+        ClienteEntity cliente = clienteRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new NaoEncontradoException("Cliente não encontrado"));
+
+        UUID idAtual = cliente.getDocumentoIdentidade() != null ? cliente.getDocumentoIdentidade().getId() : null;
+
+        return arquivoClienteRepository.findByClienteIdOrderBySalvoEmDesc(id, pageable).map(historico -> toHistoricoDTO(historico, idAtual));
+    }
+
+    // Baixa uma versao especifica do historico
+    public DocumentoDownloadDTO downloadHistorico(UUID id, UUID idDocumento) throws NaoEncontradoException {
+        clienteRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new NaoEncontradoException("Cliente não encontrado"));
+
+        ArquivoEntity arquivo = arquivoClienteRepository.findByIdAndClienteId(idDocumento, id)
+                .orElseThrow(() -> new NaoEncontradoException("Documento não encontrado"))
+                .getArquivo();
 
         return new DocumentoDownloadDTO(
                 arquivo.getNomeOriginal(),
@@ -220,6 +250,20 @@ public class ClienteService {
                 .createdAt(entidade.getCreatedAt())
                 .deletedAt(entidade.getDeletedAt())
                 .build();
+    }
+
+    private DocumentoHistoricoDTO toHistoricoDTO(ArquivoClienteEntity historico, UUID idAtual) {
+        ArquivoEntity arquivo = historico.getArquivo();
+        return new DocumentoHistoricoDTO(historico.getId(), arquivo.getNomeOriginal(), arquivo.getContentType(), arquivo.getTamanho(),
+                historico.getSalvoEm(), arquivo.getId().equals(idAtual));
+    }
+
+    private void registrarHistorico(ArquivoEntity arquivo, ClienteEntity cliente) {
+        arquivoClienteRepository.save(ArquivoClienteEntity.builder()
+                .arquivo(arquivo)
+                .cliente(cliente)
+                .salvoEm(LocalDateTime.now())
+                .build());
     }
 
     private DocumentoIdentidadeDTO toDocumentoDTO(ArquivoEntity arquivo) {
@@ -302,19 +346,6 @@ public class ClienteService {
                 .contentType(tipo.contentType)
                 .tamanho(documento.getSize())
                 .build());
-    }
-
-    private void executarAposCommit(Runnable acao) {
-        if(!TransactionSynchronizationManager.isSynchronizationActive()) {
-            acao.run();
-            return;
-        }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                acao.run();
-            }
-        });
     }
 
     private void executarAposRollback(Runnable acao) {

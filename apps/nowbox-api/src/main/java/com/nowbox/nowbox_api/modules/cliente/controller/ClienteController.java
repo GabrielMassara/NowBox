@@ -5,6 +5,7 @@ import com.nowbox.nowbox_api.modules.cliente.dto.ClienteCreateDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteFilterDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteResponseDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoDownloadDTO;
+import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoHistoricoDTO;
 import com.nowbox.nowbox_api.modules.cliente.service.ClienteService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -45,8 +46,23 @@ public class ClienteController {
     @GetMapping("/{id}/documento")
     @PreAuthorize("hasAuthority('MOD_CLIENTE_OPE_CONSULTAR')")
     public ResponseEntity<InputStreamResource> downloadDocumento(@PathVariable UUID id) throws NaoEncontradoException {
-        DocumentoDownloadDTO documento = clienteService.downloadDocumento(id);
+        return toResponse(clienteService.downloadDocumento(id));
+    }
 
+    @GetMapping("/{id}/documentos")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize("hasAuthority('MOD_CLIENTE_OPE_CONSULTAR')")
+    public Page<DocumentoHistoricoDTO> listDocumentos(Pageable pageable, @PathVariable UUID id) throws NaoEncontradoException {
+        return clienteService.listDocumentos(pageable, id);
+    }
+
+    @GetMapping("/{id}/documentos/{idDocumento}")
+    @PreAuthorize("hasAuthority('MOD_CLIENTE_OPE_CONSULTAR')")
+    public ResponseEntity<InputStreamResource> downloadHistorico(@PathVariable UUID id, @PathVariable UUID idDocumento) throws NaoEncontradoException {
+        return toResponse(clienteService.downloadHistorico(id, idDocumento));
+    }
+
+    private ResponseEntity<InputStreamResource> toResponse(DocumentoDownloadDTO documento) {
         ResponseEntity.BodyBuilder resposta = ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(documento.nomeArquivo()).build().toString())
                 .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
