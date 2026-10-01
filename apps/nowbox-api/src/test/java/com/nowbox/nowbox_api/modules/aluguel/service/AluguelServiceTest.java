@@ -12,6 +12,7 @@ import com.nowbox.nowbox_api.modules.box.repository.IBoxRepository;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
 import com.nowbox.nowbox_api.modules.cliente.repository.IClienteRepository;
 import com.nowbox.nowbox_api.modules.unidade.entity.UnidadeEntity;
+import com.nowbox.nowbox_api.modules.contrato.entity.ArquivoEntity;
 import com.nowbox.nowbox_api.modules.contrato.messaging.ContratoSolicitadoMessage;
 import com.nowbox.nowbox_api.modules.email.messaging.EmailSolicitadoMessage;
 import org.junit.jupiter.api.DisplayName;
@@ -246,7 +247,7 @@ class AluguelServiceTest {
         verify(aluguelRepository).save(argThat(e -> e.getBox().equals(box) && e.getCliente().equals(cliente) && e.getValor().equals(BigDecimal.valueOf(150.00)) && e.getStatus()));
 
         // verifica se solicitou a geracao do contrato apenas publicando o evento, sem esperar o contrato ficar pronto
-        verify(eventPublisher).publishEvent(argThat((Object e) -> e instanceof ContratoSolicitadoMessage m && m.idAluguel().equals(id) && m.idBox().equals(idBox) && m.numeroBox().equals("101")));
+        verify(eventPublisher).publishEvent(argThat((Object e) -> e instanceof ContratoSolicitadoMessage m && m.tipo() == ContratoSolicitadoMessage.Tipo.CONTRATO && m.idAluguel().equals(id) && m.idBox().equals(idBox) && m.numeroBox().equals("101")));
     }
 
     @Test
@@ -489,8 +490,56 @@ class AluguelServiceTest {
         // verifica se salvou a entidade com os dados atualizados
         verify(aluguelRepository).save(argThat(e -> e.getId().equals(id) && e.getBox().equals(box) && e.getCliente().equals(cliente)));
 
-        // verifica se solicitou um novo contrato, ja que o aluguel foi alterado
-        verify(eventPublisher).publishEvent(argThat((Object e) -> e instanceof ContratoSolicitadoMessage m && m.idAluguel().equals(id)));
+        // verifica se solicitou um aditivo com as alteracoes, ja que o contrato original e mantido
+        verify(eventPublisher).publishEvent(argThat((Object e) -> e instanceof ContratoSolicitadoMessage m && m.tipo() == ContratoSolicitadoMessage.Tipo.ADITIVO && m.idAluguel().equals(id)
+                && m.alteracoes().stream().anyMatch(a -> a.campo().equals("Box") && a.valorAnterior().equals("100") && a.valorNovo().equals("101"))));
+    }
+
+    @Test
+    @DisplayName("Should keep the original contrato of the aluguel when updating it")
+    void updateContratoOriginal() {
+        UUID id = UUID.randomUUID();
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+        BoxEntity box = boxBuilder().id(idBox).numero("101").build();
+        ClienteEntity cliente = ClienteEntity.builder().id(idCliente).nome("Cliente").build();
+        ArquivoEntity original = ArquivoEntity.builder().id(UUID.randomUUID()).chave("contratos/original.pdf").build();
+
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(200.00)).status(true).build();
+
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).box(box).cliente(cliente)
+                .valor(BigDecimal.valueOf(150.00)).status(true).contrato(original).createdAt(LocalDateTime.now()).build()));
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
+        when(aluguelRepository.save(any(AluguelEntity.class))).thenAnswer(i -> i.getArgument(0));
+
+        aluguelService.update(aluguel, id);
+
+        verify(aluguelRepository).save(argThat(e -> e.getContrato() == original));
+        verify(eventPublisher).publishEvent(argThat((Object e) -> e instanceof ContratoSolicitadoMessage m && m.tipo() == ContratoSolicitadoMessage.Tipo.ADITIVO
+                && m.alteracoes().size() == 1 && m.alteracoes().getFirst().campo().equals("Valor")));
+    }
+
+    @Test
+    @DisplayName("Should not request an aditivo nor the changed email when updating an aluguel without changes")
+    void updateSemAlteracoes() {
+        UUID id = UUID.randomUUID();
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+        BoxEntity box = boxBuilder().id(idBox).numero("101").build();
+        ClienteEntity cliente = ClienteEntity.builder().id(idCliente).nome("Maria").email("maria@email.com").build();
+
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(new BigDecimal("150.00")).observacao("  ").status(true).build();
+
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).box(box).cliente(cliente)
+                .valor(new BigDecimal("150.0")).status(true).createdAt(LocalDateTime.now()).build()));
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
+        when(aluguelRepository.save(any(AluguelEntity.class))).thenAnswer(i -> i.getArgument(0));
+
+        aluguelService.update(aluguel, id);
+
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
     }
 
     @Test

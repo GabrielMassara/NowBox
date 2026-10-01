@@ -2,7 +2,7 @@ package com.nowbox.nowbox_api.modules.contrato.controller;
 
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
 import com.nowbox.nowbox_api.modules.contrato.dto.ContratoDownloadDTO;
-import com.nowbox.nowbox_api.modules.contrato.dto.ContratoResponseDTO;
+import com.nowbox.nowbox_api.modules.contrato.dto.AditivoResponseDTO;
 import com.nowbox.nowbox_api.modules.contrato.service.ContratoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.InputStreamResource;
@@ -25,34 +25,23 @@ public class ContratoController {
 
     private final ContratoService contratoService;
 
-    // Historico dos contratos de um aluguel especifico
-    @GetMapping("/aluguel/{idAluguel}")
+    @GetMapping("/aluguel/{idAluguel}/aditivos")
     @ResponseStatus(HttpStatus.OK)
     @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_CONSULTAR_CONTRATO') and @acessoUnidadeService.temAcessoAluguel(#idAluguel)")
-    public Page<ContratoResponseDTO> listByAluguel(Pageable pageable, @PathVariable UUID idAluguel) throws NaoEncontradoException {
-        return contratoService.listByAluguel(pageable, idAluguel);
+    public Page<AditivoResponseDTO> listAditivosByAluguel(Pageable pageable, @PathVariable UUID idAluguel) throws NaoEncontradoException {
+        return contratoService.listAditivosByAluguel(pageable, idAluguel);
     }
 
-    // Historico dos contratos de todos os alugueis de um box
-    @GetMapping("/box/{idBox}")
-    @ResponseStatus(HttpStatus.OK)
-    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_CONSULTAR_CONTRATO') and @acessoUnidadeService.temAcessoBox(#idBox)")
-    public Page<ContratoResponseDTO> listByBox(Pageable pageable, @PathVariable UUID idBox) throws NaoEncontradoException {
-        return contratoService.listByBox(pageable, idBox);
-    }
-
-    // Contrato atual do aluguel. Ele pega o ultimo gerado
-    @GetMapping("/aluguel/{idAluguel}/atual/download")
+    @GetMapping("/aluguel/{idAluguel}/download")
     @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_BAIXAR_CONTRATO') and @acessoUnidadeService.temAcessoAluguel(#idAluguel)")
-    public ResponseEntity<InputStreamResource> downloadAtual(@PathVariable UUID idAluguel) throws NaoEncontradoException {
-        return toResponse(contratoService.downloadAtual(idAluguel));
+    public ResponseEntity<InputStreamResource> downloadContrato(@PathVariable UUID idAluguel) throws NaoEncontradoException {
+        return toResponse(contratoService.downloadContrato(idAluguel));
     }
 
-    // Uma versao especifica do historico
-    @GetMapping("/{id}/download")
-    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_BAIXAR_CONTRATO') and @acessoUnidadeService.temAcessoContrato(#id)")
-    public ResponseEntity<InputStreamResource> download(@PathVariable UUID id) throws NaoEncontradoException {
-        return toResponse(contratoService.download(id));
+    @GetMapping("/aditivo/{id}/download")
+    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_BAIXAR_CONTRATO') and @acessoUnidadeService.temAcessoAditivo(#id)")
+    public ResponseEntity<InputStreamResource> downloadAditivo(@PathVariable UUID id) throws NaoEncontradoException {
+        return toResponse(contratoService.downloadAditivo(id));
     }
 
     private ResponseEntity<InputStreamResource> toResponse(ContratoDownloadDTO contrato) {

@@ -2,7 +2,7 @@ package com.nowbox.nowbox_api.modules.contrato.controller;
 
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
 import com.nowbox.nowbox_api.modules.contrato.dto.ContratoDownloadDTO;
-import com.nowbox.nowbox_api.modules.contrato.dto.ContratoResponseDTO;
+import com.nowbox.nowbox_api.modules.contrato.dto.AditivoResponseDTO;
 import com.nowbox.nowbox_api.modules.contrato.service.ContratoService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,54 +36,41 @@ class ContratoControllerTest {
     @MockitoBean
     private ContratoService contratoService;
 
-    private ContratoResponseDTO dto() {
-        return ContratoResponseDTO.builder().id(UUID.randomUUID()).numeroBox("101").nomeCliente("Cliente").nomeArquivo("contrato-teste.pdf").build();
+    private AditivoResponseDTO dto() {
+        return AditivoResponseDTO.builder().id(UUID.randomUUID()).numeroBox("101").nomeCliente("Cliente").nomeArquivo("contrato-teste.pdf").build();
     }
 
     @Test
     @DisplayName("Should list the contratos of an aluguel with status 200")
-    void listByAluguel() throws Exception {
+    void listAditivosByAluguel() throws Exception {
         UUID idAluguel = UUID.randomUUID();
-        when(contratoService.listByAluguel(any(), eq(idAluguel))).thenReturn(new PageImpl<>(List.of(dto())));
+        when(contratoService.listAditivosByAluguel(any(), eq(idAluguel))).thenReturn(new PageImpl<>(List.of(dto())));
 
-        mockMvc.perform(get("/v1/contrato/aluguel/{id}", idAluguel))
+        mockMvc.perform(get("/v1/contrato/aluguel/{id}/aditivos", idAluguel))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].numeroBox").value("101"))
                 .andExpect(jsonPath("$.content[0].nomeArquivo").value("contrato-teste.pdf"));
 
-        verify(contratoService).listByAluguel(any(), eq(idAluguel));
-    }
-
-    @Test
-    @DisplayName("Should list the contratos of a box with status 200")
-    void listByBox() throws Exception {
-        UUID idBox = UUID.randomUUID();
-        when(contratoService.listByBox(any(), eq(idBox))).thenReturn(new PageImpl<>(List.of(dto())));
-
-        mockMvc.perform(get("/v1/contrato/box/{id}", idBox))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].nomeCliente").value("Cliente"));
-
-        verify(contratoService).listByBox(any(), eq(idBox));
+        verify(contratoService).listAditivosByAluguel(any(), eq(idAluguel));
     }
 
     @Test
     @DisplayName("Should return status 404 when listing contratos of an aluguel that does not exist")
-    void listByAluguelNotFound() throws Exception {
+    void listAditivosByAluguelNotFound() throws Exception {
         UUID idAluguel = UUID.randomUUID();
-        when(contratoService.listByAluguel(any(), eq(idAluguel))).thenThrow(new NaoEncontradoException("Aluguel não encontrado"));
+        when(contratoService.listAditivosByAluguel(any(), eq(idAluguel))).thenThrow(new NaoEncontradoException("Aluguel não encontrado"));
 
-        mockMvc.perform(get("/v1/contrato/aluguel/{id}", idAluguel))
+        mockMvc.perform(get("/v1/contrato/aluguel/{id}/aditivos", idAluguel))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    @DisplayName("Should download a specific contrato as an attachment PDF")
+    @DisplayName("Should download a specific aditivo as an attachment PDF")
     void download() throws Exception {
         UUID id = UUID.randomUUID();
-        when(contratoService.download(id)).thenReturn(new ContratoDownloadDTO("contrato-teste.pdf", "application/pdf", 3L, new ByteArrayInputStream(new byte[]{1, 2, 3})));
+        when(contratoService.downloadAditivo(id)).thenReturn(new ContratoDownloadDTO("contrato-teste.pdf", "application/pdf", 3L, new ByteArrayInputStream(new byte[]{1, 2, 3})));
 
-        mockMvc.perform(get("/v1/contrato/{id}/download", id))
+        mockMvc.perform(get("/v1/contrato/aditivo/{id}/download", id))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("application/pdf"))
                 .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, containsString("attachment")))
@@ -92,23 +79,23 @@ class ContratoControllerTest {
     }
 
     @Test
-    @DisplayName("Should download the current contrato of an aluguel")
-    void downloadAtual() throws Exception {
+    @DisplayName("Should download the original contrato of an aluguel")
+    void downloadContrato() throws Exception {
         UUID idAluguel = UUID.randomUUID();
-        when(contratoService.downloadAtual(idAluguel)).thenReturn(new ContratoDownloadDTO("atual.pdf", "application/pdf", 1L, new ByteArrayInputStream(new byte[]{9})));
+        when(contratoService.downloadContrato(idAluguel)).thenReturn(new ContratoDownloadDTO("atual.pdf", "application/pdf", 1L, new ByteArrayInputStream(new byte[]{9})));
 
-        mockMvc.perform(get("/v1/contrato/aluguel/{id}/atual/download", idAluguel))
+        mockMvc.perform(get("/v1/contrato/aluguel/{id}/download", idAluguel))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, containsString("atual.pdf")));
     }
 
     @Test
     @DisplayName("Should return status 404 when the contrato was not generated yet")
-    void downloadAtualNotFound() throws Exception {
+    void downloadContratoNotFound() throws Exception {
         UUID idAluguel = UUID.randomUUID();
-        when(contratoService.downloadAtual(idAluguel)).thenThrow(new NaoEncontradoException("O contrato deste aluguel ainda não foi gerado"));
+        when(contratoService.downloadContrato(idAluguel)).thenThrow(new NaoEncontradoException("O contrato deste aluguel ainda não foi gerado"));
 
-        mockMvc.perform(get("/v1/contrato/aluguel/{id}/atual/download", idAluguel))
+        mockMvc.perform(get("/v1/contrato/aluguel/{id}/download", idAluguel))
                 .andExpect(status().isNotFound());
     }
 }

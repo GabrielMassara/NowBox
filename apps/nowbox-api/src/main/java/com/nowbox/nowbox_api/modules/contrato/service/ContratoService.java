@@ -1,10 +1,10 @@
 package com.nowbox.nowbox_api.modules.contrato.service;
 
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
+import com.nowbox.nowbox_api.modules.aluguel.entity.AluguelEntity;
 import com.nowbox.nowbox_api.modules.aluguel.repository.IAluguelRepository;
-import com.nowbox.nowbox_api.modules.box.repository.IBoxRepository;
+import com.nowbox.nowbox_api.modules.contrato.dto.AditivoResponseDTO;
 import com.nowbox.nowbox_api.modules.contrato.dto.ContratoDownloadDTO;
-import com.nowbox.nowbox_api.modules.contrato.dto.ContratoResponseDTO;
 import com.nowbox.nowbox_api.modules.contrato.entity.ArquivoAluguelEntity;
 import com.nowbox.nowbox_api.modules.contrato.entity.ArquivoEntity;
 import com.nowbox.nowbox_api.modules.contrato.repository.IArquivoAluguelRepository;
@@ -22,45 +22,36 @@ public class ContratoService {
 
     private final IArquivoAluguelRepository arquivoAluguelRepository;
     private final IAluguelRepository aluguelRepository;
-    private final IBoxRepository boxRepository;
     private final ContratoStorageService storageService;
 
-    public Page<ContratoResponseDTO> listByAluguel(Pageable pageable, UUID idAluguel) throws NaoEncontradoException {
+    public Page<AditivoResponseDTO> listAditivosByAluguel(Pageable pageable, UUID idAluguel) throws NaoEncontradoException {
         aluguelRepository.findByIdAndDeletedAtIsNull(idAluguel)
                 .orElseThrow(() -> new NaoEncontradoException("Aluguel não encontrado"));
 
         return arquivoAluguelRepository.findByAluguelIdOrderBySalvoEmDesc(idAluguel, pageable).map(this::toResponseDTO);
     }
 
-    public Page<ContratoResponseDTO> listByBox(Pageable pageable, UUID idBox) throws NaoEncontradoException {
-        boxRepository.findByIdAndDeletedAtIsNull(idBox)
-                .orElseThrow(() -> new NaoEncontradoException("Box não encontrado"));
+    // Baixa um aditivo especifico
+    public ContratoDownloadDTO downloadAditivo(UUID id) throws NaoEncontradoException {
+        ArquivoAluguelEntity aditivo = arquivoAluguelRepository.findById(id)
+                .orElseThrow(() -> new NaoEncontradoException("Aditivo não encontrado"));
 
-        return arquivoAluguelRepository.findByBoxIdOrderBySalvoEmDesc(idBox, pageable).map(this::toResponseDTO);
+        return abrir(aditivo.getArquivo());
     }
 
-    // Baixa uma versao especifica do historico
-    public ContratoDownloadDTO download(UUID id) throws NaoEncontradoException {
-        ArquivoAluguelEntity contrato = arquivoAluguelRepository.findById(id)
-                .orElseThrow(() -> new NaoEncontradoException("Contrato não encontrado"));
-
-        return abrir(contrato);
-    }
-
-    // Baixa o contrato atual do aluguel, que e o ultimo gerado
-    public ContratoDownloadDTO downloadAtual(UUID idAluguel) throws NaoEncontradoException {
-        aluguelRepository.findByIdAndDeletedAtIsNull(idAluguel)
+    // Baixa o contrato original do aluguel. Ele nao muda quando o aluguel e editado
+    public ContratoDownloadDTO downloadContrato(UUID idAluguel) throws NaoEncontradoException {
+        AluguelEntity aluguel = aluguelRepository.findByIdAndDeletedAtIsNull(idAluguel)
                 .orElseThrow(() -> new NaoEncontradoException("Aluguel não encontrado"));
 
-        ArquivoAluguelEntity contrato = arquivoAluguelRepository.findFirstByAluguelIdOrderBySalvoEmDesc(idAluguel)
-                .orElseThrow(() -> new NaoEncontradoException("O contrato deste aluguel ainda não foi gerado"));
+        if (aluguel.getContrato() == null) {
+            throw new NaoEncontradoException("O contrato deste aluguel ainda não foi gerado");
+        }
 
-        return abrir(contrato);
+        return abrir(aluguel.getContrato());
     }
 
-    private ContratoDownloadDTO abrir(ArquivoAluguelEntity contrato) {
-        ArquivoEntity arquivo = contrato.getArquivo();
-
+    private ContratoDownloadDTO abrir(ArquivoEntity arquivo) {
         return new ContratoDownloadDTO(
                 arquivo.getNomeOriginal(),
                 arquivo.getContentType(),
@@ -69,8 +60,8 @@ public class ContratoService {
         );
     }
 
-    private ContratoResponseDTO toResponseDTO(ArquivoAluguelEntity entidade) {
-        return ContratoResponseDTO.builder()
+    private AditivoResponseDTO toResponseDTO(ArquivoAluguelEntity entidade) {
+        return AditivoResponseDTO.builder()
                 .id(entidade.getId())
                 .idAluguel(entidade.getAluguel().getId())
                 .idBox(entidade.getBox().getId())
@@ -78,6 +69,7 @@ public class ContratoService {
                 .nomeCliente(entidade.getAluguel().getCliente().getNome())
                 .nomeArquivo(entidade.getArquivo().getNomeOriginal())
                 .tamanho(entidade.getArquivo().getTamanho())
+                .descricao(entidade.getDescricao())
                 .salvoEm(entidade.getSalvoEm())
                 .build();
     }

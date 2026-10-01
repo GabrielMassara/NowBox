@@ -12,6 +12,7 @@ import com.nowbox.nowbox_api.modules.box.repository.IBoxRepository;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
 import com.nowbox.nowbox_api.modules.cliente.repository.IClienteRepository;
 import com.nowbox.nowbox_api.modules.contrato.messaging.ContratoSolicitadoMessage;
+import com.nowbox.nowbox_api.modules.contrato.messaging.ContratoSolicitadoMessage.Alteracao;
 import com.nowbox.nowbox_api.modules.email.messaging.EmailSolicitadoMessage;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
+import java.text.NumberFormat;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
@@ -29,6 +36,8 @@ import java.util.function.Function;
 @Service
 @RequiredArgsConstructor
 public class AluguelService {
+
+    private static final Locale PT_BR = Locale.of("pt", "BR");
 
     private final IAluguelRepository aluguelRepository;
     private final IBoxRepository boxRepository;
@@ -140,6 +149,9 @@ public class AluguelService {
             throw new ConflitoException("O box já possui um aluguel ativo");
         }
 
+        List<Alteracao> alteracoes = identificarAlteracoes(atual, box.get(), cliente.get(), aluguel);
+
+        // O contrato original e mantido. A edicao so gera um aditivo descrevendo o que mudou
         AluguelEntity updated = aluguelRepository.save(AluguelEntity.builder()
                 .id(id)
                 .box(box.get())
@@ -147,11 +159,15 @@ public class AluguelService {
                 .valor(aluguel.getValor())
                 .observacao(aluguel.getObservacao())
                 .status(aluguel.getStatus())
+                .contrato(atual.getContrato())
                 .createdAt(existente.get().getCreatedAt())
                 .build());
 
-        solicitarContrato(updated);
-        solicitarEmail(updated, EmailSolicitadoMessage::aluguelAlterado);
+        // Sem alteracao nao ha o que aditar nem o que avisar ao cliente
+        if(!alteracoes.isEmpty()) {
+            solicitarAditivo(updated, alteracoes);
+            solicitarEmail(updated, a -> EmailSolicitadoMessage.aluguelAlterado(a, alteracoes));
+        }
 
         return toResponseDTO(updated);
     }
@@ -165,9 +181,45 @@ public class AluguelService {
         aluguelRepository.save(existente);
     }
 
-    // Apenas solicita o contrato. A geracao e assincrona pelo nowbox-jobs e o envio so acontece depois do commit
+    // Apenas solicita o contrato original. A geracao e assincrona pelo nowbox-jobs e o envio so acontece depois do commit
     private void solicitarContrato(AluguelEntity aluguel) {
-        eventPublisher.publishEvent(ContratoSolicitadoMessage.de(aluguel));
+        eventPublisher.publishEvent(ContratoSolicitadoMessage.contrato(aluguel));
+    }
+
+    // Solicita o aditivo com as alteracoes feitas no contrato original, tambem de forma assincrona
+    private void solicitarAditivo(AluguelEntity aluguel, List<Alteracao> alteracoes) {
+        eventPublisher.publishEvent(ContratoSolicitadoMessage.aditivo(aluguel, alteracoes));
+    }
+
+    // Compara o aluguel salvo com os dados recebidos e lista os campos que mudaram
+    private List<Alteracao> identificarAlteracoes(AluguelEntity atual, BoxEntity novoBox, ClienteEntity novoCliente, AluguelCreateDTO novo) {
+        List<Alteracao> alteracoes = new ArrayList<>();
+
+        adicionarSeMudou(alteracoes, "Box", atual.getBox() != null ? atual.getBox().getNumero() : null, novoBox.getNumero());
+        adicionarSeMudou(alteracoes, "Cliente", atual.getCliente() != null ? atual.getCliente().getNome() : null, novoCliente.getNome());
+        adicionarSeMudou(alteracoes, "Valor", formatarValor(atual.getValor()), formatarValor(novo.getValor()));
+        adicionarSeMudou(alteracoes, "Situação", formatarSituacao(atual.getStatus()), formatarSituacao(novo.getStatus()));
+        adicionarSeMudou(alteracoes, "Observação", textoOuTraco(atual.getObservacao()), textoOuTraco(novo.getObservacao()));
+
+        return alteracoes;
+    }
+
+    private void adicionarSeMudou(List<Alteracao> alteracoes, String campo, String anterior, String novo) {
+        if(!Objects.equals(anterior, novo)) {
+            alteracoes.add(new Alteracao(campo, anterior, novo));
+        }
+    }
+
+    private String formatarValor(BigDecimal valor) {
+        return valor == null ? "-" : NumberFormat.getCurrencyInstance(PT_BR).format(valor);
+    }
+
+    private String formatarSituacao(Boolean status) {
+        return Boolean.TRUE.equals(status) ? "Ativo" : "Inativo";
+    }
+
+    private String textoOuTraco(String texto) {
+        return StringUtils.hasText(texto) ? texto.trim() : "-";
     }
 
     // Avisa o cliente do aluguel (registrado ou alterado). O envio é assincrono pelo nowbox-jobs e só acontece depois do commit e é ignorado se o cliente nao tem email
