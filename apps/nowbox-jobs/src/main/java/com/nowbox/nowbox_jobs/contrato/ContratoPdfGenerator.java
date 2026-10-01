@@ -19,25 +19,29 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-// Gera o PDF do contrato a partir do modelo do JasperReports.
+// Gera o PDF do contrato original ou do aditivo a partir dos modelos do JasperReports.
 @Component
 public class ContratoPdfGenerator {
 
     static final String MODELO_JASPER = "reports/contrato_teste.jasper";
+    static final String MODELO_ADITIVO_JASPER = "reports/aditivo_contrato_teste.jasper";
+    static final String MODELO_ADITIVO_JRXML = "reports/aditivo_contrato_teste.jrxml";
     static final String MODELO_JRXML = "reports/contrato_teste.jrxml";
 
     private static final Locale PT_BR = Locale.of("pt", "BR");
     private static final DateTimeFormatter DATA_POR_EXTENSO = DateTimeFormatter.ofPattern("d 'de' MMMM 'de' uuuu", PT_BR);
 
-    private volatile JasperReport modelo;
+    // Cache dos modelos ja carregados
+    private final Map<String, JasperReport> modelos = new ConcurrentHashMap<>();
 
     public byte[] gerar(ContratoSolicitadoMessage solicitacao) {
         try {
-            JasperPrint impressao = JasperFillManager.fillReport(carregarModelo(), montarParametros(solicitacao), new JREmptyDataSource());
+            JasperPrint impressao = JasperFillManager.fillReport(carregarModelo(solicitacao), montarParametros(solicitacao), new JREmptyDataSource());
             return JasperExportManager.exportReportToPdf(impressao);
         } catch (JRException e) {
-            throw new IllegalStateException("Falha ao gerar o PDF do contrato do aluguel " + solicitacao.idAluguel(), e);
+            throw new IllegalStateException("Falha ao gerar o PDF do aluguel " + solicitacao.idAluguel(), e);
         }
     }
 
@@ -63,38 +67,33 @@ public class ContratoPdfGenerator {
         parametros.put("valor", formatarValor(solicitacao.valor()));
         parametros.put("assinatura", formatarData(solicitacao.dataAssinatura()));
         parametros.put("numero", solicitacao.numeroBox());
+        parametros.put("contratoOriginal", formatarData(solicitacao.dataContratoOriginal()));
+        parametros.put("alteracoes", solicitacao.descricaoAlteracoes());
         return parametros;
     }
 
-    private JasperReport carregarModelo() {
-        JasperReport carregado = modelo;
-        if (carregado == null) {
-            synchronized (this) {
-                if (modelo == null) {
-                    modelo = abrirModelo();
-                }
-                carregado = modelo;
-            }
-        }
-        return carregado;
+    private JasperReport carregarModelo(ContratoSolicitadoMessage solicitacao) {
+        return solicitacao.aditivo()
+                ? modelos.computeIfAbsent(MODELO_ADITIVO_JASPER, chave -> abrirModelo(MODELO_ADITIVO_JASPER, MODELO_ADITIVO_JRXML))
+                : modelos.computeIfAbsent(MODELO_JASPER, chave -> abrirModelo(MODELO_JASPER, MODELO_JRXML));
     }
 
-    private JasperReport abrirModelo() {
-        try (InputStream jasper = getClass().getClassLoader().getResourceAsStream(MODELO_JASPER)) {
+    private JasperReport abrirModelo(String modeloJasper, String modeloJrxml) {
+        try (InputStream jasper = getClass().getClassLoader().getResourceAsStream(modeloJasper)) {
             if (jasper != null) {
                 return (JasperReport) JRLoader.loadObject(jasper);
             }
         } catch (IOException | JRException e) {
-            throw new IllegalStateException("Falha ao carregar o modelo compilado " + MODELO_JASPER, e);
+            throw new IllegalStateException("Falha ao carregar o modelo compilado " + modeloJasper, e);
         }
 
-        try (InputStream jrxml = getClass().getClassLoader().getResourceAsStream(MODELO_JRXML)) {
+        try (InputStream jrxml = getClass().getClassLoader().getResourceAsStream(modeloJrxml)) {
             if (jrxml == null) {
-                throw new IllegalStateException("Modelo do contrato nao encontrado: " + MODELO_JASPER + " ou " + MODELO_JRXML);
+                throw new IllegalStateException("Modelo nao encontrado: " + modeloJasper + " ou " + modeloJrxml);
             }
             return JasperCompileManager.compileReport(jrxml);
         } catch (IOException | JRException e) {
-            throw new IllegalStateException("Falha ao compilar o modelo " + MODELO_JRXML, e);
+            throw new IllegalStateException("Falha ao compilar o modelo " + modeloJrxml, e);
         }
     }
 
