@@ -3,19 +3,18 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import AppIcon from './AppIcon.vue'
 import { ApiError } from '../lib/http'
 import { contratoService } from '../services/contrato.service'
-import type { ContratoResponseDTO } from '../types/api'
+import type { AditivoResponseDTO } from '../types/api'
 
 const TAMANHO_PAGINA = 8
 
 const props = defineProps<{
   titulo: string
-  idAluguel?: string
-  idBox?: string
+  idAluguel: string
 }>()
 
 const emit = defineEmits<{ fechar: [] }>()
 
-const contratos = ref<ContratoResponseDTO[]>([])
+const contratos = ref<AditivoResponseDTO[]>([])
 const carregando = ref(true)
 const erro = ref('')
 const baixandoId = ref('')
@@ -34,23 +33,18 @@ function formatarTamanho(bytes: number) {
   return bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
-function ehAtual(indice: number) {
-  return !!props.idAluguel && pagina.value === 0 && indice === 0
-}
 
 async function carregar() {
   carregando.value = true
   erro.value = ''
 
   try {
-    const resultado = props.idAluguel
-      ? await contratoService.listarPorAluguel(props.idAluguel, pagina.value, TAMANHO_PAGINA)
-      : await contratoService.listarPorBox(props.idBox ?? '', pagina.value, TAMANHO_PAGINA)
+    const resultado = await contratoService.listarAditivosPorAluguel(props.idAluguel, pagina.value, TAMANHO_PAGINA)
     contratos.value = resultado.content
     totalPaginas.value = resultado.totalPages
     totalElementos.value = resultado.totalElements
   } catch (e) {
-    erro.value = e instanceof ApiError ? e.message : 'Não foi possível carregar os contratos.'
+    erro.value = e instanceof ApiError ? e.message : 'Não foi possível carregar os aditivos.'
   } finally {
     carregando.value = false
   }
@@ -62,14 +56,14 @@ function irParaPagina(novaPagina: number) {
   carregar()
 }
 
-async function baixar(contrato: ContratoResponseDTO) {
+async function baixar(contrato: AditivoResponseDTO) {
   baixandoId.value = contrato.id
   erro.value = ''
 
   try {
-    await contratoService.baixar(contrato.id, contrato.nomeArquivo)
+    await contratoService.baixarAditivo(contrato.id, contrato.nomeArquivo)
   } catch (e) {
-    erro.value = e instanceof ApiError ? e.message : 'Não foi possível baixar o contrato.'
+    erro.value = e instanceof ApiError ? e.message : 'Não foi possível baixar o aditivo.'
   } finally {
     baixandoId.value = ''
   }
@@ -99,7 +93,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', aoPressionarTecla))
 
       <div v-if="carregando" class="contratos__estado">
         <AppIcon name="loader" :size="20" class="contratos__spinner" />
-        <span>Carregando contratos...</span>
+        <span>Carregando aditivos...</span>
       </div>
 
       <div v-else-if="erro && contratos.length === 0" class="contratos__estado contratos__estado--erro">
@@ -110,7 +104,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', aoPressionarTecla))
 
       <div v-else-if="contratos.length === 0" class="contratos__estado">
         <AppIcon name="file-text" :size="20" />
-        <span>Nenhum contrato gerado ainda. Ele é gerado em segundo plano logo após salvar o aluguel.</span>
+        <span>Nenhum aditivo gerado. Um aditivo é gerado em segundo plano sempre que o aluguel é alterado, e o contrato original é mantido.</span>
         <button type="button" class="btn" @click="carregar">Atualizar</button>
       </div>
 
@@ -121,29 +115,25 @@ onBeforeUnmount(() => window.removeEventListener('keydown', aoPressionarTecla))
           <thead>
             <tr>
               <th>Gerado em</th>
-              <th v-if="idBox">Cliente</th>
+              <th>Alterações</th>
               <th>Arquivo</th>
               <th>Tamanho</th>
               <th class="contratos__col-acoes">Baixar</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(contrato, indice) in contratos" :key="contrato.id">
+            <tr v-for="contrato in contratos" :key="contrato.id">
               <td data-label="Gerado em">
                 {{ formatarDataHora(contrato.salvoEm) }}
-                <span v-if="ehAtual(indice)" class="badge badge--good">
-                  <span class="badge__dot" />
-                  Atual
-                </span>
               </td>
-              <td v-if="idBox" data-label="Cliente">{{ contrato.nomeCliente }}</td>
+              <td data-label="Alterações" class="contratos__descricao">{{ contrato.descricao || '-' }}</td>
               <td data-label="Arquivo" class="contratos__arquivo">{{ contrato.nomeArquivo }}</td>
               <td data-label="Tamanho">{{ formatarTamanho(contrato.tamanho) }}</td>
               <td class="contratos__col-acoes">
                 <button
                   type="button"
                   class="contratos__acao-btn"
-                  aria-label="Baixar contrato"
+                  aria-label="Baixar aditivo"
                   title="Baixar"
                   :disabled="baixandoId === contrato.id"
                   @click="baixar(contrato)"
@@ -160,7 +150,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', aoPressionarTecla))
         </table>
 
         <div class="contratos__paginacao">
-          <span class="contratos__total">{{ totalElementos }} contrato(s)</span>
+          <span class="contratos__total">{{ totalElementos }} aditivo(s)</span>
 
           <div class="contratos__paginacao-controles">
             <button
@@ -299,8 +289,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', aoPressionarTecla))
   border-top: 1px solid var(--border-hairline);
 }
 
-.contratos__tabela td .badge {
-  margin-left: 8px;
+
+.contratos__descricao {
+  white-space: pre-line;
 }
 
 .contratos__arquivo {

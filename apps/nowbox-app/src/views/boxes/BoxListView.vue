@@ -3,7 +3,6 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
 import SkeletonTable from '../../components/skeleton/SkeletonTable.vue'
-import ContratosModal from '../../components/ContratosModal.vue'
 import { ApiError } from '../../lib/http'
 import { boxService } from '../../services/box.service'
 import { unidadeStore } from '../../stores/unidade'
@@ -17,7 +16,6 @@ const boxes = ref<BoxResponseDTO[]>([])
 const carregando = ref(false)
 const erro = ref('')
 const excluindoId = ref('')
-const boxDosContratos = ref<BoxResponseDTO | null>(null)
 
 const pagina = ref(0)
 const totalPaginas = ref(0)
@@ -176,15 +174,6 @@ onMounted(carregar)
                 <button
                   type="button"
                   class="boxes__acao-btn"
-                  aria-label="Histórico de contratos"
-                  title="Histórico de contratos"
-                  @click="boxDosContratos = box"
-                >
-                  <AppIcon name="file-text" :size="16" />
-                </button>
-                <button
-                  type="button"
-                  class="boxes__acao-btn"
                   aria-label="Editar box"
                   title="Editar"
                   @click="editarBox(box)"
@@ -239,13 +228,6 @@ onMounted(carregar)
         </div>
       </div>
     </div>
-
-    <ContratosModal
-      v-if="boxDosContratos"
-      :titulo="`Contratos do box ${boxDosContratos.numero}`"
-      :id-box="boxDosContratos.id"
-      @fechar="boxDosContratos = null"
-    />
   </div>
 </template>
 

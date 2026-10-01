@@ -104,7 +104,7 @@ async function baixarContrato(aluguel: AluguelResponseDTO) {
   erro.value = ''
 
   try {
-    await contratoService.baixarAtual(aluguel.id)
+    await contratoService.baixarContrato(aluguel.id)
   } catch (e) {
     erro.value = e instanceof ApiError ? e.message : 'Não foi possível baixar o contrato.'
   } finally {
@@ -236,8 +236,8 @@ onMounted(iniciar)
                 <button
                   type="button"
                   class="alugueis__acao-btn"
-                  aria-label="Baixar contrato atual"
-                  title="Baixar contrato atual"
+                  aria-label="Baixar contrato"
+                  title="Baixar contrato"
                   :disabled="baixandoContratoId === aluguel.id"
                   @click="baixarContrato(aluguel)"
                 >
@@ -250,8 +250,8 @@ onMounted(iniciar)
                 <button
                   type="button"
                   class="alugueis__acao-btn"
-                  aria-label="Histórico de contratos"
-                  title="Histórico de contratos"
+                  aria-label="Aditivos do contrato"
+                  title="Aditivos do contrato"
                   @click="aluguelDosContratos = aluguel"
                 >
                   <AppIcon name="file-text" :size="16" />
@@ -316,7 +316,7 @@ onMounted(iniciar)
 
     <ContratosModal
       v-if="aluguelDosContratos"
-      :titulo="`Contratos do aluguel do box ${aluguelDosContratos.box?.numero}`"
+      :titulo="`Aditivos do contrato do aluguel do box ${aluguelDosContratos.box?.numero}`"
       :id-aluguel="aluguelDosContratos.id"
       @fechar="aluguelDosContratos = null"
     />
