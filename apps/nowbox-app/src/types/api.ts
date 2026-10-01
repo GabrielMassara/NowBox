@@ -193,7 +193,7 @@ export interface AluguelCreateDTO {
   status: boolean
 }
 
-export interface ContratoResponseDTO {
+export interface AditivoResponseDTO {
   id: string
   idAluguel: string
   idBox: string
@@ -201,6 +201,7 @@ export interface ContratoResponseDTO {
   nomeCliente: string
   nomeArquivo: string
   tamanho: number
+  descricao: string | null
   salvoEm: string
 }
 
