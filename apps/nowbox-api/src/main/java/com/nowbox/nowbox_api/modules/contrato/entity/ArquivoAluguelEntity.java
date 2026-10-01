@@ -9,8 +9,8 @@ import lombok.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-// Vincula um contrato gerado ao aluguel. O contrato atual de um aluguel e o de maior salvoEm.
-// O box e gravado junto porque o aluguel pode trocar de box, e o historico do box deve refletir o box do contrato
+// Vincula um aditivo de contrato ao aluguel
+// O box e gravado junto porque o aluguel pode trocar de box, e o historico do box deve refletir o box do aditivo
 @Entity
 @Table(name = "tb_arquivo_aluguel")
 @Builder
@@ -38,6 +38,9 @@ public class ArquivoAluguelEntity {
     @JoinColumn(name = "id_box", nullable = false)
     @NotNull
     private BoxEntity box;
+
+    @Column(columnDefinition = "TEXT")
+    private String descricao;
 
     @Column(name = "salvo_em")
     private LocalDateTime salvoEm;

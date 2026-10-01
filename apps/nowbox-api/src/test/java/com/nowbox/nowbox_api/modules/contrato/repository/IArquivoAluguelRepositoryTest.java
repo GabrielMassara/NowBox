@@ -20,7 +20,6 @@ import org.springframework.test.context.ActiveProfiles;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -76,7 +75,7 @@ class IArquivoAluguelRepositoryTest {
     }
 
     @Test
-    @DisplayName("Return the contratos of an aluguel from the newest to the oldest, and the newest as the current one")
+    @DisplayName("Return the aditivos of an aluguel from the newest to the oldest")
     void historicoDoAluguel() {
         UnidadeEntity unidade = unidade();
         BoxEntity box = box(unidade, "101");
@@ -87,38 +86,12 @@ class IArquivoAluguelRepositoryTest {
 
         LocalDateTime agora = LocalDateTime.now();
         contrato(aluguel, box, "antigo", agora.minusDays(2));
-        ArquivoAluguelEntity maisNovo = contrato(aluguel, box, "novo", agora);
+        contrato(aluguel, box, "novo", agora);
         contrato(aluguel, box, "intermediario", agora.minusDays(1));
         contrato(outroAluguel, outroBox, "de-outro", agora);
 
         Page<ArquivoAluguelEntity> historico = arquivoAluguelRepository.findByAluguelIdOrderBySalvoEmDesc(aluguel.getId(), PageRequest.of(0, 10));
-        Optional<ArquivoAluguelEntity> atual = arquivoAluguelRepository.findFirstByAluguelIdOrderBySalvoEmDesc(aluguel.getId());
 
         assertThat(historico.getContent()).extracting(c -> c.getArquivo().getChave()).containsExactly("novo", "intermediario", "antigo");
-        assertThat(atual).isPresent();
-        assertThat(atual.get().getId()).isEqualTo(maisNovo.getId());
-    }
-
-    @Test
-    @DisplayName("Return the contratos of every aluguel of the box, keeping the box the contrato was generated for")
-    void historicoDoBox() {
-        UnidadeEntity unidade = unidade();
-        ClienteEntity cliente = cliente(unidade.getEstado());
-        BoxEntity box1 = box(unidade, "101");
-        BoxEntity box2 = box(unidade, "102");
-        AluguelEntity aluguel1 = aluguel(box1, cliente);
-        AluguelEntity aluguel2 = aluguel(box1, cliente);
-
-        LocalDateTime agora = LocalDateTime.now();
-        contrato(aluguel1, box1, "a1", agora.minusDays(1));
-        contrato(aluguel2, box1, "a2", agora);
-        // o aluguel1 foi movido para o box2 depois, mas o contrato antigo continua no historico do box1
-        contrato(aluguel1, box2, "a1-box2", agora);
-
-        Page<ArquivoAluguelEntity> historicoBox1 = arquivoAluguelRepository.findByBoxIdOrderBySalvoEmDesc(box1.getId(), PageRequest.of(0, 10));
-        Page<ArquivoAluguelEntity> historicoBox2 = arquivoAluguelRepository.findByBoxIdOrderBySalvoEmDesc(box2.getId(), PageRequest.of(0, 10));
-
-        assertThat(historicoBox1.getContent()).extracting(c -> c.getArquivo().getChave()).containsExactly("a2", "a1");
-        assertThat(historicoBox2.getContent()).extracting(c -> c.getArquivo().getChave()).containsExactly("a1-box2");
     }
 }

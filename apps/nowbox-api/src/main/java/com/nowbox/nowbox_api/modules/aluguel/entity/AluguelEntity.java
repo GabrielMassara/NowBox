@@ -2,6 +2,7 @@ package com.nowbox.nowbox_api.modules.aluguel.entity;
 
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
+import com.nowbox.nowbox_api.modules.contrato.entity.ArquivoEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -42,6 +43,10 @@ public class AluguelEntity {
 
     @Column(name = "status")
     private Boolean status;
+
+    @OneToOne
+    @JoinColumn(name = "id_arquivo_contrato")
+    private ArquivoEntity contrato;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

@@ -4,6 +4,7 @@ import com.nowbox.nowbox_api.modules.aluguel.entity.AluguelEntity;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
 import com.nowbox.nowbox_api.modules.contrato.messaging.ContratoMessagingConfig;
+import com.nowbox.nowbox_api.modules.contrato.messaging.ContratoSolicitadoMessage;
 import com.nowbox.nowbox_api.modules.unidade.entity.UnidadeEntity;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import org.springframework.amqp.support.converter.MessageConverter;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -48,5 +50,20 @@ class EmailMessagingConfigTest {
         assertThat(email.variaveis()).containsEntry("nome", "Maria").containsEntry("numeroBox", "101").containsEntry("unidade", "Unidade Centro");
         assertThat(email.variaveis().get("valor").replace(' ', ' ')).isEqualTo("R$ 1.234,50");
         assertThat(email.variaveis().get("data")).matches("\\d{2}/\\d{2}/\\d{4}");
+    }
+
+    @Test
+    @DisplayName("Should list the changes of the aluguel in the aluguel changed email")
+    void montarAluguelAlterado() {
+        BoxEntity box = BoxEntity.builder().numero("101").unidade(UnidadeEntity.builder().nome("Unidade Centro").build()).build();
+        ClienteEntity cliente = ClienteEntity.builder().nome("Maria").email("m@e.com").build();
+        AluguelEntity aluguel = AluguelEntity.builder().box(box).cliente(cliente).valor(new BigDecimal("200.00")).build();
+
+        EmailSolicitadoMessage email = EmailSolicitadoMessage.aluguelAlterado(aluguel, List.of(
+                new ContratoSolicitadoMessage.Alteracao("Valor", "R$ 150,00", "R$ 200,00"),
+                new ContratoSolicitadoMessage.Alteracao("Situação", "Ativo", "Inativo")));
+
+        assertThat(email.template()).isEqualTo(EmailSolicitadoMessage.Template.ALUGUEL_ALTERADO);
+        assertThat(email.variaveis().get("alteracoes")).isEqualTo("Valor: R$ 150,00 → R$ 200,00; Situação: Ativo → Inativo");
     }
 }

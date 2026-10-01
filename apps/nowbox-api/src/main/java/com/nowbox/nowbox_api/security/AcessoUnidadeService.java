@@ -52,7 +52,7 @@ public class AcessoUnidadeService {
                 .orElse(true);
     }
 
-    public boolean temAcessoContrato(UUID idContrato) {
+    public boolean temAcessoAditivo(UUID idContrato) {
         if (idContrato == null) {
             return false;
         }

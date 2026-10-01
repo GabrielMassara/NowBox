@@ -6,11 +6,14 @@ import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
-// Solicitacao de geracao de contrato enviada ao worker (nowbox-jobs). Carrega uma copia dos dados para que o worker nao precise consultar o banco
+// Solicitacao de geracao de documento enviada ao worker (nowbox-jobs). Carrega uma copia dos dados para que o worker nao precise consultar o banco.
+// O tipo CONTRATO gera o contrato original do aluguel e o ADITIVO gera um documento com as alteracoes feitas nele
 public record ContratoSolicitadoMessage(
         UUID idSolicitacao,
+        Tipo tipo,
         UUID idAluguel,
         UUID idBox,
         UUID idUnidade,
@@ -18,8 +21,18 @@ public record ContratoSolicitadoMessage(
         String cnpjLocadora,
         BigDecimal valor,
         LocalDate dataAssinatura,
+        LocalDate dataContratoOriginal,
+        List<Alteracao> alteracoes,
         Contratante contratante
 ) {
+
+    public enum Tipo {
+        CONTRATO,
+        ADITIVO
+    }
+
+    public record Alteracao(String campo, String valorAnterior, String valorNovo) {
+    }
 
     public record Contratante(
             String nome,
@@ -39,7 +52,15 @@ public record ContratoSolicitadoMessage(
     ) {
     }
 
-    public static ContratoSolicitadoMessage de(AluguelEntity aluguel) {
+    public static ContratoSolicitadoMessage contrato(AluguelEntity aluguel) {
+        return de(aluguel, Tipo.CONTRATO, List.of());
+    }
+
+    public static ContratoSolicitadoMessage aditivo(AluguelEntity aluguel, List<Alteracao> alteracoes) {
+        return de(aluguel, Tipo.ADITIVO, alteracoes);
+    }
+
+    private static ContratoSolicitadoMessage de(AluguelEntity aluguel, Tipo tipo, List<Alteracao> alteracoes) {
         BoxEntity box = aluguel.getBox();
         ClienteEntity cliente = aluguel.getCliente();
 
@@ -60,15 +81,20 @@ public record ContratoSolicitadoMessage(
                 Boolean.TRUE.equals(cliente.getEnderecoCorrespondencia())
         );
 
+        LocalDate hoje = LocalDate.now();
+
         return new ContratoSolicitadoMessage(
                 UUID.randomUUID(),
+                tipo,
                 aluguel.getId(),
                 box.getId(),
                 box.getUnidade().getId(),
                 box.getNumero(),
                 box.getUnidade().getCnpj(),
                 aluguel.getValor(),
-                LocalDate.now(),
+                hoje,
+                aluguel.getCreatedAt() != null ? aluguel.getCreatedAt().toLocalDate() : hoje,
+                alteracoes,
                 contratante
         );
     }

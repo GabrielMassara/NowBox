@@ -10,7 +10,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class ContratoResponseDTO {
+public class AditivoResponseDTO {
 
     private UUID id;
 
@@ -25,6 +25,8 @@ public class ContratoResponseDTO {
     private String nomeArquivo;
 
     private Long tamanho;
+
+    private String descricao;
 
     private LocalDateTime salvoEm;
 

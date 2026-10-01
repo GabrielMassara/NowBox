@@ -4,10 +4,9 @@ import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
 import com.nowbox.nowbox_api.modules.aluguel.entity.AluguelEntity;
 import com.nowbox.nowbox_api.modules.aluguel.repository.IAluguelRepository;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
-import com.nowbox.nowbox_api.modules.box.repository.IBoxRepository;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
 import com.nowbox.nowbox_api.modules.contrato.dto.ContratoDownloadDTO;
-import com.nowbox.nowbox_api.modules.contrato.dto.ContratoResponseDTO;
+import com.nowbox.nowbox_api.modules.contrato.dto.AditivoResponseDTO;
 import com.nowbox.nowbox_api.modules.contrato.entity.ArquivoAluguelEntity;
 import com.nowbox.nowbox_api.modules.contrato.entity.ArquivoEntity;
 import com.nowbox.nowbox_api.modules.contrato.repository.IArquivoAluguelRepository;
@@ -47,9 +46,6 @@ class ContratoServiceTest {
     private IAluguelRepository aluguelRepository;
 
     @Mock
-    private IBoxRepository boxRepository;
-
-    @Mock
     private ContratoStorageService storageService;
 
     @InjectMocks
@@ -66,15 +62,15 @@ class ContratoServiceTest {
     }
 
     @Test
-    @DisplayName("Should list the contratos history of an aluguel")
-    void listByAluguelCase1() {
+    @DisplayName("Should list the aditivos history of an aluguel")
+    void listAditivosByAluguelCase1() {
         UUID idAluguel = UUID.randomUUID();
         PageRequest pageable = PageRequest.of(0, 10);
         when(aluguelRepository.findByIdAndDeletedAtIsNull(idAluguel)).thenReturn(Optional.of(AluguelEntity.builder().id(idAluguel).build()));
         when(arquivoAluguelRepository.findByAluguelIdOrderBySalvoEmDesc(idAluguel, pageable))
                 .thenReturn(new PageImpl<>(List.of(contrato(UUID.randomUUID(), idAluguel, UUID.randomUUID()))));
 
-        Page<ContratoResponseDTO> result = contratoService.listByAluguel(pageable, idAluguel);
+        Page<AditivoResponseDTO> result = contratoService.listAditivosByAluguel(pageable, idAluguel);
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().getFirst().getIdAluguel()).isEqualTo(idAluguel);
@@ -85,48 +81,24 @@ class ContratoServiceTest {
 
     @Test
     @DisplayName("Should throw NaoEncontradoException when listing contratos of an aluguel that does not exist")
-    void listByAluguelCase2() {
+    void listAditivosByAluguelCase2() {
         UUID idAluguel = UUID.randomUUID();
         when(aluguelRepository.findByIdAndDeletedAtIsNull(idAluguel)).thenReturn(Optional.empty());
 
-        assertThrows(NaoEncontradoException.class, () -> contratoService.listByAluguel(PageRequest.of(0, 10), idAluguel));
+        assertThrows(NaoEncontradoException.class, () -> contratoService.listAditivosByAluguel(PageRequest.of(0, 10), idAluguel));
 
         verify(arquivoAluguelRepository, never()).findByAluguelIdOrderBySalvoEmDesc(any(), any());
     }
 
     @Test
-    @DisplayName("Should list the contratos history of a box")
-    void listByBoxCase1() {
-        UUID idBox = UUID.randomUUID();
-        PageRequest pageable = PageRequest.of(0, 10);
-        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(BoxEntity.builder().id(idBox).build()));
-        when(arquivoAluguelRepository.findByBoxIdOrderBySalvoEmDesc(idBox, pageable))
-                .thenReturn(new PageImpl<>(List.of(contrato(UUID.randomUUID(), UUID.randomUUID(), idBox))));
-
-        Page<ContratoResponseDTO> result = contratoService.listByBox(pageable, idBox);
-
-        assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().getFirst().getIdBox()).isEqualTo(idBox);
-    }
-
-    @Test
-    @DisplayName("Should throw NaoEncontradoException when listing contratos of a box that does not exist")
-    void listByBoxCase2() {
-        UUID idBox = UUID.randomUUID();
-        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.empty());
-
-        assertThrows(NaoEncontradoException.class, () -> contratoService.listByBox(PageRequest.of(0, 10), idBox));
-    }
-
-    @Test
-    @DisplayName("Should open the file of a specific contrato from the storage")
+    @DisplayName("Should open the file of a specific aditivo from the storage")
     void downloadCase1() {
         UUID id = UUID.randomUUID();
         InputStream conteudo = new ByteArrayInputStream(new byte[]{1, 2, 3});
         when(arquivoAluguelRepository.findById(id)).thenReturn(Optional.of(contrato(id, UUID.randomUUID(), UUID.randomUUID())));
         when(storageService.abrir("contratos/a.pdf")).thenReturn(conteudo);
 
-        ContratoDownloadDTO result = contratoService.download(id);
+        ContratoDownloadDTO result = contratoService.downloadAditivo(id);
 
         assertThat(result.nomeArquivo()).isEqualTo("contrato-teste.pdf");
         assertThat(result.contentType()).isEqualTo("application/pdf");
@@ -135,38 +107,49 @@ class ContratoServiceTest {
     }
 
     @Test
-    @DisplayName("Should throw NaoEncontradoException when contrato does not exist")
+    @DisplayName("Should throw NaoEncontradoException when aditivo does not exist")
     void downloadCase2() {
         UUID id = UUID.randomUUID();
         when(arquivoAluguelRepository.findById(id)).thenReturn(Optional.empty());
 
-        assertThrows(NaoEncontradoException.class, () -> contratoService.download(id));
+        assertThrows(NaoEncontradoException.class, () -> contratoService.downloadAditivo(id));
 
         verify(storageService, never()).abrir(any());
     }
 
     @Test
-    @DisplayName("Should open the latest contrato of the aluguel as the current one")
-    void downloadAtualCase1() {
+    @DisplayName("Should open the original contrato referenced by the aluguel")
+    void downloadContratoCase1() {
         UUID idAluguel = UUID.randomUUID();
-        when(aluguelRepository.findByIdAndDeletedAtIsNull(idAluguel)).thenReturn(Optional.of(AluguelEntity.builder().id(idAluguel).build()));
-        when(arquivoAluguelRepository.findFirstByAluguelIdOrderBySalvoEmDesc(idAluguel))
-                .thenReturn(Optional.of(contrato(UUID.randomUUID(), idAluguel, UUID.randomUUID())));
-        when(storageService.abrir("contratos/a.pdf")).thenReturn(new ByteArrayInputStream(new byte[0]));
+        ArquivoEntity original = ArquivoEntity.builder().id(UUID.randomUUID()).bucket("nowbox-contratos").chave("contratos/original.pdf")
+                .nomeOriginal("contrato-original.pdf").contentType("application/pdf").tamanho(10L).build();
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(idAluguel)).thenReturn(Optional.of(AluguelEntity.builder().id(idAluguel).contrato(original).build()));
+        when(storageService.abrir("contratos/original.pdf")).thenReturn(new ByteArrayInputStream(new byte[0]));
 
-        ContratoDownloadDTO result = contratoService.downloadAtual(idAluguel);
+        ContratoDownloadDTO result = contratoService.downloadContrato(idAluguel);
 
-        assertThat(result.nomeArquivo()).isEqualTo("contrato-teste.pdf");
+        assertThat(result.nomeArquivo()).isEqualTo("contrato-original.pdf");
+        verify(arquivoAluguelRepository, never()).findById(any());
     }
 
     @Test
     @DisplayName("Should throw NaoEncontradoException when the contrato of the aluguel was not generated yet")
-    void downloadAtualCase2() {
+    void downloadContratoCase2() {
         UUID idAluguel = UUID.randomUUID();
         when(aluguelRepository.findByIdAndDeletedAtIsNull(idAluguel)).thenReturn(Optional.of(AluguelEntity.builder().id(idAluguel).build()));
-        when(arquivoAluguelRepository.findFirstByAluguelIdOrderBySalvoEmDesc(idAluguel)).thenReturn(Optional.empty());
 
-        assertThrows(NaoEncontradoException.class, () -> contratoService.downloadAtual(idAluguel));
+        assertThrows(NaoEncontradoException.class, () -> contratoService.downloadContrato(idAluguel));
+
+        verify(storageService, never()).abrir(any());
+    }
+
+    @Test
+    @DisplayName("Should throw NaoEncontradoException when downloading the contrato of an aluguel that does not exist")
+    void downloadContratoCase3() {
+        UUID idAluguel = UUID.randomUUID();
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(idAluguel)).thenReturn(Optional.empty());
+
+        assertThrows(NaoEncontradoException.class, () -> contratoService.downloadContrato(idAluguel));
     }
 
 }

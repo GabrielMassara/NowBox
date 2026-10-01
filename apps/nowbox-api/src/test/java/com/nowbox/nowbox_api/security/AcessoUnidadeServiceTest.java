@@ -179,7 +179,7 @@ class AcessoUnidadeServiceTest {
 
     @Test
     @DisplayName("Should grant access to a contrato when the user has the unidade of the box where it was generated")
-    void temAcessoContratoCase1() {
+    void temAcessoAditivoCase1() {
         UUID idUnidade = UUID.randomUUID();
         UUID idContrato = UUID.randomUUID();
         autenticarComo(idUnidade);
@@ -188,12 +188,12 @@ class AcessoUnidadeServiceTest {
         BoxEntity box = BoxEntity.builder().id(UUID.randomUUID()).unidade(unidade).build();
         when(arquivoAluguelRepository.findById(idContrato)).thenReturn(Optional.of(ArquivoAluguelEntity.builder().id(idContrato).box(box).build()));
 
-        assertThat(acessoUnidadeService.temAcessoContrato(idContrato)).isTrue();
+        assertThat(acessoUnidadeService.temAcessoAditivo(idContrato)).isTrue();
     }
 
     @Test
     @DisplayName("Should deny access to a contrato when the user does not have the unidade of its box")
-    void temAcessoContratoCase2() {
+    void temAcessoAditivoCase2() {
         UUID idContrato = UUID.randomUUID();
         autenticarComo(UUID.randomUUID());
 
@@ -201,22 +201,22 @@ class AcessoUnidadeServiceTest {
         BoxEntity box = BoxEntity.builder().id(UUID.randomUUID()).unidade(outraUnidade).build();
         when(arquivoAluguelRepository.findById(idContrato)).thenReturn(Optional.of(ArquivoAluguelEntity.builder().id(idContrato).box(box).build()));
 
-        assertThat(acessoUnidadeService.temAcessoContrato(idContrato)).isFalse();
+        assertThat(acessoUnidadeService.temAcessoAditivo(idContrato)).isFalse();
     }
 
     @Test
     @DisplayName("Should grant access when contrato does not exist, so the service can throw 404 later")
-    void temAcessoContratoCase3() {
+    void temAcessoAditivoCase3() {
         UUID idContrato = UUID.randomUUID();
         when(arquivoAluguelRepository.findById(idContrato)).thenReturn(Optional.empty());
 
-        assertThat(acessoUnidadeService.temAcessoContrato(idContrato)).isTrue();
+        assertThat(acessoUnidadeService.temAcessoAditivo(idContrato)).isTrue();
     }
 
     @Test
     @DisplayName("Should deny access to a contrato when idContrato is null")
-    void temAcessoContratoCase4() {
-        assertThat(acessoUnidadeService.temAcessoContrato(null)).isFalse();
+    void temAcessoAditivoCase4() {
+        assertThat(acessoUnidadeService.temAcessoAditivo(null)).isFalse();
     }
 
 }

@@ -3,14 +3,17 @@ package com.nowbox.nowbox_api.modules.email.messaging;
 import com.nowbox.nowbox_api.modules.aluguel.entity.AluguelEntity;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
+import com.nowbox.nowbox_api.modules.contrato.messaging.ContratoSolicitadoMessage;
 
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 // Solicitacao de envio de email ao worker. O template fica no worker, aqui vai so o nome dele e os valores ja formatados
 public record EmailSolicitadoMessage(
@@ -35,8 +38,12 @@ public record EmailSolicitadoMessage(
         return de(aluguel, "Seu aluguel foi registrado com sucesso", Template.ALUGUEL_REGISTRADO);
     }
 
-    public static EmailSolicitadoMessage aluguelAlterado(AluguelEntity aluguel) {
-        return de(aluguel, "Seu aluguel foi alterado", Template.ALUGUEL_ALTERADO);
+    public static EmailSolicitadoMessage aluguelAlterado(AluguelEntity aluguel, List<ContratoSolicitadoMessage.Alteracao> alteracoes) {
+        EmailSolicitadoMessage mensagem = de(aluguel, "Um aditivo foi feito no seu contrato", Template.ALUGUEL_ALTERADO);
+        mensagem.variaveis().put("alteracoes", alteracoes.stream()
+                .map(a -> a.campo() + ": " + a.valorAnterior() + " → " + a.valorNovo())
+                .collect(Collectors.joining("; ")));
+        return mensagem;
     }
 
     private static EmailSolicitadoMessage de(AluguelEntity aluguel, String assunto, Template template) {
