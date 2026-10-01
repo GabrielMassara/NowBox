@@ -3,6 +3,7 @@ package com.nowbox.nowbox_api.modules.cliente.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
+import com.nowbox.nowbox_api.common.exception.RequisicaoInvalidaException;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteCreateDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteResponseDTO;
 import com.nowbox.nowbox_api.modules.cliente.service.ClienteService;
@@ -14,7 +15,9 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -23,6 +26,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
@@ -42,6 +46,14 @@ class ClienteControllerTest {
 
     @MockitoBean
     private ClienteService clienteService;
+
+    private MockMultipartFile parteCliente(ClienteCreateDTO cliente) throws Exception {
+        return new MockMultipartFile("cliente", "", MediaType.APPLICATION_JSON_VALUE, objectMapper.writeValueAsBytes(cliente));
+    }
+
+    private MockMultipartFile parteDocumento() {
+        return new MockMultipartFile("documento", "rg.pdf", "application/pdf", "%PDF-1.4".getBytes());
+    }
 
     @Test
     @DisplayName("Should list clientes with status 200")
@@ -116,18 +128,16 @@ class ClienteControllerTest {
         ClienteResponseDTO dtoSalvo = ClienteResponseDTO.builder().id(id).nome("Cliente Test").estado(estado).build();
 
         // Quando chamar create ele retorna o mock dtoSalvo
-        when(clienteService.create(any(ClienteCreateDTO.class))).thenReturn(dtoSalvo);
+        when(clienteService.create(any(ClienteCreateDTO.class), any())).thenReturn(dtoSalvo);
 
         // chama o endpoint POST /v1/cliente
-        mockMvc.perform(post("/v1/cliente")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(cliente)))
+        mockMvc.perform(multipart("/v1/cliente").file(parteCliente(cliente)).file(parteDocumento()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(id.toString()))
                 .andExpect(jsonPath("$.nome").value("Cliente Test"));
 
         // verifica se o service foi chamado com os dados corretos
-        verify(clienteService).create(argThat(c -> c.getIdEstado().equals(idEstado) && c.getNome().equals("Cliente Test")));
+        verify(clienteService).create(argThat(c -> c.getIdEstado().equals(idEstado) && c.getNome().equals("Cliente Test")), argThat(d -> d != null && "rg.pdf".equals(d.getOriginalFilename())));
     }
 
     @Test
@@ -137,16 +147,28 @@ class ClienteControllerTest {
         ClienteCreateDTO cliente = ClienteCreateDTO.builder().idEstado(UUID.randomUUID()).nome("Cliente Test").build();
 
         // Mock para simular que o service lanca excecao pois o estado nao existe
-        when(clienteService.create(any(ClienteCreateDTO.class))).thenThrow(new NaoEncontradoException("Estado inválido"));
+        when(clienteService.create(any(ClienteCreateDTO.class), any())).thenThrow(new NaoEncontradoException("Estado inválido"));
 
         // chama o endpoint POST /v1/cliente e verifica se retorna 404
-        mockMvc.perform(post("/v1/cliente")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(cliente)))
+        mockMvc.perform(multipart("/v1/cliente").file(parteCliente(cliente)).file(parteDocumento()))
                 .andExpect(status().isNotFound());
 
         // verifica se o service foi chamado com os dados corretos
-        verify(clienteService).create(any(ClienteCreateDTO.class));
+        verify(clienteService).create(any(ClienteCreateDTO.class), any());
+    }
+
+    @Test
+    @DisplayName("Should return status 400 when creating cliente without documento")
+    void createCase3() throws Exception {
+        ClienteCreateDTO cliente = ClienteCreateDTO.builder().idEstado(UUID.randomUUID()).nome("Cliente Test").build();
+
+        // o service e quem exige o documento
+        when(clienteService.create(any(ClienteCreateDTO.class), isNull())).thenThrow(new RequisicaoInvalidaException("O documento de identidade é obrigatório"));
+
+        mockMvc.perform(multipart("/v1/cliente").file(parteCliente(cliente)))
+                .andExpect(status().isBadRequest());
+
+        verify(clienteService).create(any(ClienteCreateDTO.class), isNull());
     }
 
     @Test
@@ -160,18 +182,16 @@ class ClienteControllerTest {
         // Mock para simular resposta do Service
         EstadoEntity estado = EstadoEntity.builder().id(idEstado).nome("Estado Test").uf("XX").build();
         ClienteResponseDTO dtoAtualizado = ClienteResponseDTO.builder().id(id).nome("Cliente Test").estado(estado).build();
-        when(clienteService.update(any(ClienteCreateDTO.class), eq(id))).thenReturn(dtoAtualizado);
+        when(clienteService.update(any(ClienteCreateDTO.class), any(), eq(id))).thenReturn(dtoAtualizado);
 
         // chama o endpoint PUT /v1/cliente/{id}
-        mockMvc.perform(put("/v1/cliente/{id}", id)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(cliente)))
+        mockMvc.perform(multipart(HttpMethod.PUT, "/v1/cliente/{id}", id).file(parteCliente(cliente)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(id.toString()))
                 .andExpect(jsonPath("$.nome").value("Cliente Test"));
 
         // verifica se o service foi chamado com o id e os dados corretos
-        verify(clienteService).update(argThat(c -> c.getNome().equals("Cliente Test")), eq(id));
+        verify(clienteService).update(argThat(c -> c.getNome().equals("Cliente Test")), isNull(), eq(id));
     }
 
     @Test
@@ -182,16 +202,14 @@ class ClienteControllerTest {
         ClienteCreateDTO cliente = ClienteCreateDTO.builder().idEstado(UUID.randomUUID()).nome("Cliente Test").build();
 
         // Mock para simular que o service lanca excecao pois o cliente nao existe
-        when(clienteService.update(any(ClienteCreateDTO.class), eq(id))).thenThrow(new NaoEncontradoException("Cliente não encontrado"));
+        when(clienteService.update(any(ClienteCreateDTO.class), any(), eq(id))).thenThrow(new NaoEncontradoException("Cliente não encontrado"));
 
         // chama o endpoint PUT /v1/cliente/{id} e verifica se retorna 404
-        mockMvc.perform(put("/v1/cliente/{id}", id)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(cliente)))
+        mockMvc.perform(multipart(HttpMethod.PUT, "/v1/cliente/{id}", id).file(parteCliente(cliente)))
                 .andExpect(status().isNotFound());
 
         // verifica se o service foi chamado com o id e os dados corretos
-        verify(clienteService).update(any(ClienteCreateDTO.class), eq(id));
+        verify(clienteService).update(any(ClienteCreateDTO.class), any(), eq(id));
     }
 
     @Test
