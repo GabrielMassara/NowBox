@@ -82,7 +82,7 @@ class ContratoPdfGeneratorTest {
         return new ContratoSolicitadoMessage(base.idSolicitacao(), ContratoSolicitadoMessage.Tipo.ADITIVO, base.idAluguel(), base.idBox(),
                 base.idUnidade(), base.numeroBox(), base.cnpjLocadora(), base.valor(), LocalDate.of(2026, 10, 5), LocalDate.of(2026, 9, 28),
                 List.of(new ContratoSolicitadoMessage.Alteracao("Valor", "R$ 100,00", "R$ 120,00"),
-                        new ContratoSolicitadoMessage.Alteracao("Situação", "Ativo", "Inativo")),
+                        new ContratoSolicitadoMessage.Alteracao("Observação", "-", "Box com chave")),
                 base.contratante());
     }
 
@@ -93,7 +93,7 @@ class ContratoPdfGeneratorTest {
 
         assertThat(parametros).containsEntry("contratoOriginal", "28 de setembro de 2026")
                 .containsEntry("assinatura", "5 de outubro de 2026")
-                .containsEntry("alteracoes", "Valor: R$ 100,00 → R$ 120,00\nSituação: Ativo → Inativo");
+                .containsEntry("alteracoes", "Valor: R$ 100,00 → R$ 120,00\nObservação: - → Box com chave");
     }
 
     @Test
@@ -102,5 +102,22 @@ class ContratoPdfGeneratorTest {
         Map<String, Object> parametros = generator.montarParametros(solicitacao(false));
 
         assertThat(parametros).containsEntry("endereco_correspondecia", "Não informado");
+    }
+
+    static ContratoSolicitadoMessage distrato() {
+        ContratoSolicitadoMessage base = solicitacao(true);
+        return new ContratoSolicitadoMessage(base.idSolicitacao(), ContratoSolicitadoMessage.Tipo.DISTRATO, base.idAluguel(), base.idBox(),
+                base.idUnidade(), base.numeroBox(), base.cnpjLocadora(), base.valor(), LocalDate.of(2026, 10, 5), LocalDate.of(2026, 9, 28),
+                List.of(), base.contratante());
+    }
+
+    @Test
+    @DisplayName("Should send the original contrato date and the termination date as report parameters of the distrato")
+    void montarParametrosDistrato() {
+        Map<String, Object> parametros = generator.montarParametros(distrato());
+
+        assertThat(parametros).containsEntry("contratoOriginal", "28 de setembro de 2026")
+                .containsEntry("assinatura", "5 de outubro de 2026")
+                .containsEntry("numero", "101");
     }
 }

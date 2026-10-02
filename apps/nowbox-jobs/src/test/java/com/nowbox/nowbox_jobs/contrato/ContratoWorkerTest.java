@@ -107,4 +107,21 @@ class ContratoWorkerTest {
         verify(storageService).gravar(anyString(), any(), anyString());
         assertThat(solicitacao).isNotNull();
     }
+
+    @Test
+    @DisplayName("Should store the distrato under its own key and name so it never replaces the original contrato")
+    void processarDistrato() {
+        ContratoSolicitadoMessage solicitacao = ContratoPdfGeneratorTest.distrato();
+        byte[] pdf = {1, 2};
+        when(pdfGenerator.gerar(solicitacao)).thenReturn(pdf);
+        when(storageService.getBucketContratos()).thenReturn("nowbox-contratos");
+        when(contratoRepository.registrar(any(), anyString(), anyString(), anyString(), anyString(), anyLong(), any())).thenReturn(true);
+
+        worker.processar(solicitacao);
+
+        String chaveEsperada = "contratos/%s/%s/distratos/%s.pdf".formatted(solicitacao.idUnidade(), solicitacao.idAluguel(), solicitacao.idSolicitacao());
+        verify(storageService).gravar(chaveEsperada, pdf, "application/pdf");
+        verify(contratoRepository).registrar(eq(solicitacao), eq("nowbox-contratos"), eq(chaveEsperada),
+                startsWith("distrato-contrato-teste-box-101-"), eq("application/pdf"), eq((long) pdf.length), any(LocalDateTime.class));
+    }
 }

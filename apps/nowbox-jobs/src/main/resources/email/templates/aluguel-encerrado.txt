@@ -1,0 +1,14 @@
+Olá, {{nome}}!
+
+O contrato do seu aluguel foi encerrado por meio de um distrato. Confira abaixo os dados do contrato encerrado.
+
+Box: {{numeroBox}}
+Unidade: {{unidade}}
+Valor: {{valor}}
+Situação: {{situacao}}
+Data do encerramento: {{data}}
+
+O distrato será emitido e ficará disponível para você. Este contrato não poderá ser reativado.
+Em caso de dúvidas, é só responder este e-mail.
+
+(c) {{ano}} NowBox

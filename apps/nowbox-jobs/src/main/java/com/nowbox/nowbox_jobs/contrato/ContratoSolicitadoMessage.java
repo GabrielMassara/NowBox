@@ -23,7 +23,8 @@ public record ContratoSolicitadoMessage(
 
     public enum Tipo {
         CONTRATO,
-        ADITIVO
+        ADITIVO,
+        DISTRATO
     }
 
     public record Alteracao(String campo, String valorAnterior, String valorNovo) {
@@ -49,6 +50,10 @@ public record ContratoSolicitadoMessage(
 
     public boolean aditivo() {
         return tipo == Tipo.ADITIVO;
+    }
+
+    public boolean distrato() {
+        return tipo == Tipo.DISTRATO;
     }
 
     // Uma alteracao por linha, usada no PDF e como descricao do aditivo no historico
