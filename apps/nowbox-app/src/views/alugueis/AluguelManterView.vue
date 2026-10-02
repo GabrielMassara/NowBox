@@ -17,7 +17,7 @@ const router = useRouter()
 const idAluguel = computed(() => route.params.id as string | undefined)
 const emEdicao = computed(() => !!idAluguel.value)
 
-const form = reactive({ idBox: '', idCliente: '', valor: '', observacao: '', status: true })
+const form = reactive({ idBox: '', idCliente: '', valor: '', observacao: '' })
 const boxes = ref<BoxResponseDTO[]>([])
 const clientes = ref<ClienteResponseDTO[]>([])
 
@@ -70,7 +70,6 @@ async function carregarAluguel(id: string) {
   form.idCliente = aluguel.cliente.id
   form.valor = String(aluguel.valor)
   form.observacao = aluguel.observacao ?? ''
-  form.status = aluguel.status
 }
 
 onMounted(async () => {
@@ -102,7 +101,6 @@ async function onSubmit() {
     idCliente: form.idCliente,
     valor: Number(form.valor),
     observacao: form.observacao.trim() || undefined,
-    status: form.status,
   }
 
   try {
@@ -183,11 +181,6 @@ async function onSubmit() {
               :disabled="salvando"
             />
           </div>
-
-          <label class="aluguel-manter__check">
-            <input v-model="form.status" type="checkbox" :disabled="salvando" />
-            Aluguel ativo (desmarque para marcá-lo como inativo)
-          </label>
 
           <p v-if="erro" class="aluguel-manter__erro">
             <AppIcon name="alert-circle" :size="15" />
@@ -353,27 +346,5 @@ async function onSubmit() {
   margin-top: auto;
   padding-top: 24px;
   border-top: 1px solid var(--border-hairline);
-}
-
-.aluguel-manter__check {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13.5px;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.aluguel-manter__check input {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--brand-500);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.aluguel-manter__check input:disabled {
-  cursor: default;
 }
 </style>
