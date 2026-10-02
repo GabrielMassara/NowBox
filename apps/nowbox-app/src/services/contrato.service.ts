@@ -17,9 +17,42 @@ export const contratoService = {
     salvarArquivo(blob, nomeArquivo ?? nomeSugerido)
   },
 
+  async baixarContratoAssinado(idAluguel: string) {
+    const { blob, nomeArquivo } = await http.download(`/v1/contrato/aluguel/${idAluguel}/assinado/download`)
+    salvarArquivo(blob, nomeArquivo ?? 'contrato-assinado.pdf')
+  },
+
+  async baixarDistratoAssinado(idAluguel: string) {
+    const { blob, nomeArquivo } = await http.download(`/v1/contrato/aluguel/${idAluguel}/distrato/assinado/download`)
+    salvarArquivo(blob, nomeArquivo ?? 'distrato-assinado.pdf')
+  },
+
+  async baixarAditivoAssinado(id: string, nomeSugerido = 'aditivo-assinado.pdf') {
+    const { blob, nomeArquivo } = await http.download(`/v1/contrato/aditivo/${id}/assinado/download`)
+    salvarArquivo(blob, nomeArquivo ?? nomeSugerido)
+  },
+
+  async enviarAditivoAssinado(idAluguel: string, arquivo: File) {
+    const dados = new FormData()
+    dados.append('arquivo', arquivo)
+    await http.postForm<void>(`/v1/contrato/aluguel/${idAluguel}/aditivo-assinado`, dados)
+  },
+
   async baixarDistrato(idAluguel: string) {
     const { blob, nomeArquivo } = await http.download(`/v1/contrato/aluguel/${idAluguel}/distrato/download`)
     salvarArquivo(blob, nomeArquivo ?? 'distrato.pdf')
+  },
+
+  async enviarContratoAssinado(idAluguel: string, arquivo: File) {
+    const dados = new FormData()
+    dados.append('arquivo', arquivo)
+    await http.postForm<void>(`/v1/contrato/aluguel/${idAluguel}/contrato-assinado`, dados)
+  },
+
+  async enviarDistratoAssinado(idAluguel: string, arquivo: File) {
+    const dados = new FormData()
+    dados.append('arquivo', arquivo)
+    await http.postForm<void>(`/v1/contrato/aluguel/${idAluguel}/distrato-assinado`, dados)
   },
 
   // Contrato original do aluguel, que nao muda quando o aluguel e editado

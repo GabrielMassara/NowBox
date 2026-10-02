@@ -5,7 +5,6 @@ export interface BoxFiltro {
   idUnidade: string
   numero?: string
   disponivel?: boolean
-  // true lista só os boxes com aluguel ativo; false, só os que não têm.
   alugado?: boolean
 }
 
