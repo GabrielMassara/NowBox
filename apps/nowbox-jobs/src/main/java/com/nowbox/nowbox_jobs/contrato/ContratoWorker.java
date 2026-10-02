@@ -26,6 +26,12 @@ public class ContratoWorker {
     public void processar(ContratoSolicitadoMessage solicitacao) {
         log.info("Gerando {} do aluguel {} (solicitacao {})", descreverTipo(solicitacao), solicitacao.idAluguel(), solicitacao.idSolicitacao());
 
+        // Se a assinatura foi cancelada antes de o PDF ser gerado, nao ha o que gerar nem registrar
+        if (!contratoRepository.aguardandoGeracao(solicitacao)) {
+            log.info("Aluguel {} nao aguarda mais o {} (solicitacao {}), geracao descartada", solicitacao.idAluguel(), descreverTipo(solicitacao), solicitacao.idSolicitacao());
+            return;
+        }
+
         byte[] pdf = pdfGenerator.gerar(solicitacao);
         LocalDateTime geradoEm = LocalDateTime.now();
 
@@ -42,7 +48,7 @@ public class ContratoWorker {
         boolean registrado = contratoRepository.registrar(solicitacao, storageService.getBucketContratos(), chave, nomeArquivo,
                 CONTENT_TYPE_PDF, pdf.length, geradoEm);
 
-        log.info(registrado ? "Documento do aluguel {} gravado em {}" : "Documento do aluguel {} ja estava registrado em {}", solicitacao.idAluguel(), chave);
+        log.info(registrado ? "Documento do aluguel {} gravado em {}" : "Documento do aluguel {} nao foi registrado em {} (ja registrado ou assinatura cancelada)", solicitacao.idAluguel(), chave);
     }
 
     private String descreverTipo(ContratoSolicitadoMessage solicitacao) {

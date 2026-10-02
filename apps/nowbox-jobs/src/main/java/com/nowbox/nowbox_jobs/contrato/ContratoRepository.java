@@ -16,10 +16,28 @@ public class ContratoRepository {
 
     private final JdbcClient jdbc;
 
-    // Retorna false quando a chave ja estava registrada sem duplicar o documento
+    // Indica se o aluguel ainda aguarda este documento. E falso quando a assinatura foi cancelada ou o aluguel nao existe mais
+    public boolean aguardandoGeracao(ContratoSolicitadoMessage solicitacao) {
+        return solicitacao.statusEsperado().equals(statusDoAluguel(solicitacao.idAluguel(), false));
+    }
+
+    private String statusDoAluguel(UUID idAluguel, boolean travar) {
+        return jdbc.sql("SELECT status FROM tb_aluguel WHERE id = :id" + (travar ? " FOR UPDATE" : ""))
+                .param("id", idAluguel)
+                .query(String.class)
+                .optional()
+                .orElse(null);
+    }
+
+    // Retorna false quando a chave ja estava registrada sem duplicar o documento ou quando o aluguel deixou de aguardar o documento
     @Transactional
     public boolean registrar(ContratoSolicitadoMessage solicitacao, String bucket, String chave, String nomeArquivo,
                              String contentType, long tamanho, LocalDateTime salvoEm) {
+        // Trava o aluguel para que um cancelamento concorrente espere este registro terminar, em vez de ser ignorado por ele
+        if (!solicitacao.statusEsperado().equals(statusDoAluguel(solicitacao.idAluguel(), true))) {
+            return false;
+        }
+
         UUID idArquivo = UUID.randomUUID();
 
         int inseridos = jdbc.sql("""
@@ -66,8 +84,8 @@ public class ContratoRepository {
 
     private void registrarAditivo(ContratoSolicitadoMessage solicitacao, UUID idArquivo, LocalDateTime salvoEm) {
         jdbc.sql("""
-                        INSERT INTO tb_arquivo_aluguel (id, id_arquivo, id_aluguel, id_box, descricao, salvo_em)
-                        VALUES (:id, :idArquivo, :idAluguel, :idBox, :descricao, :salvoEm)
+                        INSERT INTO tb_arquivo_aluguel (id, id_arquivo, id_aluguel, id_box, descricao, salvo_em, pendente_assinatura)
+                        VALUES (:id, :idArquivo, :idAluguel, :idBox, :descricao, :salvoEm, TRUE)
                         """)
                 .param("id", UUID.randomUUID())
                 .param("idArquivo", idArquivo)
