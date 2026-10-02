@@ -28,7 +28,8 @@ public record EmailSolicitadoMessage(
     // Os nomes precisam existir no enum EmailTemplate do nowbox-jobs
     public enum Template {
         ALUGUEL_REGISTRADO,
-        ALUGUEL_ALTERADO
+        ALUGUEL_ALTERADO,
+        ALUGUEL_ENCERRADO
     }
 
     private static final Locale PT_BR = Locale.of("pt", "BR");
@@ -44,6 +45,10 @@ public record EmailSolicitadoMessage(
                 .map(a -> a.campo() + ": " + a.valorAnterior() + " → " + a.valorNovo())
                 .collect(Collectors.joining("; ")));
         return mensagem;
+    }
+
+    public static EmailSolicitadoMessage aluguelEncerrado(AluguelEntity aluguel) {
+        return de(aluguel, "Seu contrato de aluguel foi encerrado", Template.ALUGUEL_ENCERRADO);
     }
 
     private static EmailSolicitadoMessage de(AluguelEntity aluguel, String assunto, Template template) {

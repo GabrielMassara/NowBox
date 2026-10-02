@@ -1,5 +1,6 @@
 package com.nowbox.nowbox_api.modules.aluguel.controller;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nowbox.nowbox_api.common.exception.ConflitoException;
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
@@ -159,7 +160,7 @@ class AluguelControllerTest {
     @DisplayName("Should return status 409 when creating an aluguel for a box that already has an active one")
     void createCase3() throws Exception {
         // dados para criacao de um aluguel ativo
-        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(UUID.randomUUID()).idCliente(UUID.randomUUID()).status(true).build();
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(UUID.randomUUID()).idCliente(UUID.randomUUID()).build();
 
         // Mock para simular que o service lanca excecao pois o box ja tem um aluguel ativo
         when(aluguelService.create(any(AluguelCreateDTO.class))).thenThrow(new ConflitoException("O box já possui um aluguel ativo"));
@@ -179,7 +180,7 @@ class AluguelControllerTest {
     void updateCase3() throws Exception {
         // id e dados para atualizacao de um aluguel ativo
         UUID id = UUID.randomUUID();
-        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(UUID.randomUUID()).idCliente(UUID.randomUUID()).status(true).build();
+        AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(UUID.randomUUID()).idCliente(UUID.randomUUID()).build();
 
         // Mock para simular que o service lanca excecao pois o box ja tem outro aluguel ativo
         when(aluguelService.update(any(AluguelCreateDTO.class), eq(id))).thenThrow(new ConflitoException("O box já possui um aluguel ativo"));
@@ -256,5 +257,28 @@ class AluguelControllerTest {
 
         // verifica se o service foi chamado com o id correto
         verify(aluguelService).delete(id);
+    }
+
+    @Test
+    @DisplayName("Should end aluguel with status 200")
+    void encerrarCase1() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(aluguelService.encerrar(id)).thenReturn(AluguelResponseDTO.builder().id(id).status(false).build());
+
+        // chama o endpoint PATCH /v1/aluguel/{id}/encerrar
+        mockMvc.perform(patch("/v1/aluguel/{id}/encerrar", id))
+                .andExpect(status().isOk());
+
+        verify(aluguelService).encerrar(id);
+    }
+
+    @Test
+    @DisplayName("Should return status 409 when ending an aluguel that was already ended")
+    void encerrarCase2() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(aluguelService.encerrar(id)).thenThrow(new ConflitoException("O contrato deste aluguel já foi encerrado"));
+
+        mockMvc.perform(patch("/v1/aluguel/{id}/encerrar", id))
+                .andExpect(status().isConflict());
     }
 }

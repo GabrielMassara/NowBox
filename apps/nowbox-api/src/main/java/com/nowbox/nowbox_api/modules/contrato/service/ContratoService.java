@@ -51,6 +51,18 @@ public class ContratoService {
         return abrir(aluguel.getContrato());
     }
 
+    // Baixa o distrato gerado quando o aluguel foi encerrado
+    public ContratoDownloadDTO downloadDistrato(UUID idAluguel) throws NaoEncontradoException {
+        AluguelEntity aluguel = aluguelRepository.findByIdAndDeletedAtIsNull(idAluguel)
+                .orElseThrow(() -> new NaoEncontradoException("Aluguel não encontrado"));
+
+        if (aluguel.getDistrato() == null) {
+            throw new NaoEncontradoException("O distrato deste aluguel ainda não foi gerado");
+        }
+
+        return abrir(aluguel.getDistrato());
+    }
+
     private ContratoDownloadDTO abrir(ArquivoEntity arquivo) {
         return new ContratoDownloadDTO(
                 arquivo.getNomeOriginal(),

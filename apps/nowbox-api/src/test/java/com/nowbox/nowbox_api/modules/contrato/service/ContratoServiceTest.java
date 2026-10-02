@@ -152,4 +152,28 @@ class ContratoServiceTest {
         assertThrows(NaoEncontradoException.class, () -> contratoService.downloadContrato(idAluguel));
     }
 
+    @Test
+    @DisplayName("Should open the distrato referenced by the aluguel")
+    void downloadDistratoCase1() {
+        UUID idAluguel = UUID.randomUUID();
+        ArquivoEntity distrato = ArquivoEntity.builder().id(UUID.randomUUID()).bucket("nowbox-contratos").chave("contratos/distrato.pdf")
+                .nomeOriginal("distrato.pdf").contentType("application/pdf").tamanho(10L).build();
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(idAluguel)).thenReturn(Optional.of(AluguelEntity.builder().id(idAluguel).distrato(distrato).build()));
+        when(storageService.abrir("contratos/distrato.pdf")).thenReturn(new ByteArrayInputStream(new byte[0]));
+
+        ContratoDownloadDTO result = contratoService.downloadDistrato(idAluguel);
+
+        assertThat(result.nomeArquivo()).isEqualTo("distrato.pdf");
+    }
+
+    @Test
+    @DisplayName("Should throw NaoEncontradoException when the distrato of the aluguel was not generated yet")
+    void downloadDistratoCase2() {
+        UUID idAluguel = UUID.randomUUID();
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(idAluguel)).thenReturn(Optional.of(AluguelEntity.builder().id(idAluguel).build()));
+
+        assertThrows(NaoEncontradoException.class, () -> contratoService.downloadDistrato(idAluguel));
+
+        verify(storageService, never()).abrir(any());
+    }
 }

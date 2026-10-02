@@ -38,6 +38,12 @@ public class ContratoController {
         return toResponse(contratoService.downloadContrato(idAluguel));
     }
 
+    @GetMapping("/aluguel/{idAluguel}/distrato/download")
+    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_BAIXAR_CONTRATO') and @acessoUnidadeService.temAcessoAluguel(#idAluguel)")
+    public ResponseEntity<InputStreamResource> downloadDistrato(@PathVariable UUID idAluguel) throws NaoEncontradoException {
+        return toResponse(contratoService.downloadDistrato(idAluguel));
+    }
+
     @GetMapping("/aditivo/{id}/download")
     @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_BAIXAR_CONTRATO') and @acessoUnidadeService.temAcessoAditivo(#id)")
     public ResponseEntity<InputStreamResource> downloadAditivo(@PathVariable UUID id) throws NaoEncontradoException {
