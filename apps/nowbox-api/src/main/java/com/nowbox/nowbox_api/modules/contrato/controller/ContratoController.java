@@ -15,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -38,10 +39,49 @@ public class ContratoController {
         return toResponse(contratoService.downloadContrato(idAluguel));
     }
 
+    @GetMapping("/aluguel/{idAluguel}/assinado/download")
+    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_BAIXAR_CONTRATO') and @acessoUnidadeService.temAcessoAluguel(#idAluguel)")
+    public ResponseEntity<InputStreamResource> downloadContratoAssinado(@PathVariable UUID idAluguel) throws NaoEncontradoException {
+        return toResponse(contratoService.downloadContratoAssinado(idAluguel));
+    }
+
     @GetMapping("/aluguel/{idAluguel}/distrato/download")
     @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_BAIXAR_CONTRATO') and @acessoUnidadeService.temAcessoAluguel(#idAluguel)")
     public ResponseEntity<InputStreamResource> downloadDistrato(@PathVariable UUID idAluguel) throws NaoEncontradoException {
         return toResponse(contratoService.downloadDistrato(idAluguel));
+    }
+
+    @GetMapping("/aluguel/{idAluguel}/distrato/assinado/download")
+    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_BAIXAR_CONTRATO') and @acessoUnidadeService.temAcessoAluguel(#idAluguel)")
+    public ResponseEntity<InputStreamResource> downloadDistratoAssinado(@PathVariable UUID idAluguel) throws NaoEncontradoException {
+        return toResponse(contratoService.downloadDistratoAssinado(idAluguel));
+    }
+
+    @PostMapping(value = "/aluguel/{idAluguel}/contrato-assinado", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_ENVIAR_ASSINADO') and @acessoUnidadeService.temAcessoAluguel(#idAluguel)")
+    public void enviarContratoAssinado(@PathVariable UUID idAluguel, @RequestPart("arquivo") MultipartFile arquivo) throws NaoEncontradoException {
+        contratoService.enviarContratoAssinado(idAluguel, arquivo);
+    }
+
+    @PostMapping(value = "/aluguel/{idAluguel}/distrato-assinado", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_ENVIAR_ASSINADO') and @acessoUnidadeService.temAcessoAluguel(#idAluguel)")
+    public void enviarDistratoAssinado(@PathVariable UUID idAluguel, @RequestPart("arquivo") MultipartFile arquivo) throws NaoEncontradoException {
+        contratoService.enviarDistratoAssinado(idAluguel, arquivo);
+    }
+
+    @PostMapping(value = "/aluguel/{idAluguel}/aditivo-assinado", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_ENVIAR_ASSINADO') and @acessoUnidadeService.temAcessoAluguel(#idAluguel)")
+    public void enviarAditivoAssinado(@PathVariable UUID idAluguel, @RequestPart("arquivo") MultipartFile arquivo) throws NaoEncontradoException {
+        contratoService.enviarAditivoAssinado(idAluguel, arquivo);
+    }
+
+    @GetMapping("/aditivo/{id}/assinado/download")
+    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_BAIXAR_CONTRATO') and @acessoUnidadeService.temAcessoAditivo(#id)")
+    public ResponseEntity<InputStreamResource> downloadAditivoAssinado(@PathVariable UUID id) throws NaoEncontradoException {
+        return toResponse(contratoService.downloadAditivoAssinado(id));
     }
 
     @GetMapping("/aditivo/{id}/download")

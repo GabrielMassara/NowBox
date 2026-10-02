@@ -3,6 +3,8 @@ package com.nowbox.nowbox_api.modules.contrato.storage;
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
+import io.minio.PutObjectArgs;
+import io.minio.RemoveObjectArgs;
 import io.minio.errors.ErrorResponseException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +22,31 @@ public class ContratoStorageService {
 
     @Value("${app.storage.minio.bucket-contratos}")
     private String bucketContratos;
+
+    public String getBucketContratos() {
+        return bucketContratos;
+    }
+
+    public void gravar(String chave, InputStream conteudo, long tamanho, String contentType) {
+        try {
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(bucketContratos)
+                    .object(chave)
+                    .stream(conteudo, tamanho, -1)
+                    .contentType(contentType)
+                    .build());
+        } catch (Exception e) {
+            throw new IllegalStateException("Falha ao gravar o contrato no armazenamento", e);
+        }
+    }
+
+    public void remover(String chave) {
+        try {
+            minioClient.removeObject(RemoveObjectArgs.builder().bucket(bucketContratos).object(chave).build());
+        } catch (Exception ignorada) {
+            // sem efeito para o usuario
+        }
+    }
 
     public InputStream abrir(String chave) {
         try {

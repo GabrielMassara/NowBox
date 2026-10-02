@@ -1,6 +1,7 @@
 package com.nowbox.nowbox_api.modules.email.messaging;
 
 import com.nowbox.nowbox_api.modules.aluguel.entity.AluguelEntity;
+import com.nowbox.nowbox_api.modules.aluguel.entity.StatusAluguel;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
 import com.nowbox.nowbox_api.modules.contrato.messaging.ContratoSolicitadoMessage;
@@ -60,7 +61,7 @@ public record EmailSolicitadoMessage(
         variaveis.put("numeroBox", box.getNumero());
         variaveis.put("unidade", box.getUnidade() != null ? box.getUnidade().getNome() : null);
         variaveis.put("valor", aluguel.getValor() != null ? NumberFormat.getCurrencyInstance(PT_BR).format(aluguel.getValor()) : null);
-        variaveis.put("situacao", Boolean.TRUE.equals(aluguel.getStatus()) ? "Ativo" : "Inativo");
+        variaveis.put("situacao", aluguel.getStatus() == StatusAluguel.ATIVO ? "Ativo" : "Inativo");
         variaveis.put("data", DATA.format(LocalDate.now()));
 
         return new EmailSolicitadoMessage(

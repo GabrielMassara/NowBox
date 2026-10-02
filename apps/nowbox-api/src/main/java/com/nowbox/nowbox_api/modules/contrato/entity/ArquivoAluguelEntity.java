@@ -42,6 +42,15 @@ public class ArquivoAluguelEntity {
     @Column(columnDefinition = "TEXT")
     private String descricao;
 
+    @Column(name = "pendente_assinatura")
+    private boolean pendenteAssinatura;
+
+    private boolean cancelado;
+
+    @OneToOne
+    @JoinColumn(name = "id_arquivo_assinado")
+    private ArquivoEntity assinado;
+
     @Column(name = "salvo_em")
     private LocalDateTime salvoEm;
 

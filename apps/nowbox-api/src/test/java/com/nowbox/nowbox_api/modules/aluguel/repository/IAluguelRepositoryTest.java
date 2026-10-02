@@ -2,6 +2,7 @@ package com.nowbox.nowbox_api.modules.aluguel.repository;
 
 import com.nowbox.nowbox_api.modules.cliente.ClienteTestFixtures;
 import com.nowbox.nowbox_api.modules.aluguel.entity.AluguelEntity;
+import com.nowbox.nowbox_api.modules.aluguel.entity.StatusAluguel;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
 import com.nowbox.nowbox_api.modules.estado.entity.EstadoEntity;
@@ -64,7 +65,7 @@ class IAluguelRepositoryTest {
         List<AluguelEntity> alugueis = this.createScenario();
         AluguelEntity aluguelInativo = alugueis.get(2);
 
-        Page<AluguelEntity> result = aluguelRepository.findAllByFilter(null, null, false, null);
+        Page<AluguelEntity> result = aluguelRepository.findAllByFilter(null, null, StatusAluguel.INATIVO, null);
 
         assertThat(result.getContent().getFirst().getId()).isEqualTo(aluguelInativo.getId());
         assertThat(result.getContent()).hasSize(1);
@@ -167,59 +168,59 @@ class IAluguelRepositoryTest {
 
     @Test
     @DisplayName("Should find an active aluguel for the box")
-    void existsByBoxIdAndStatusTrueAndDeletedAtIsNullCase1() {
+    void existsByBoxIdAndStatusNotAndDeletedAtIsNullCase1() {
         List<AluguelEntity> alugueis = this.createScenario();
 
         // o aluguel 1 e ativo no box 1
-        boolean result = aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNull(alugueis.get(0).getBox().getId());
+        boolean result = aluguelRepository.existsByBoxIdAndStatusNotAndDeletedAtIsNull(alugueis.get(0).getBox().getId(), StatusAluguel.INATIVO);
 
         assertThat(result).isTrue();
     }
 
     @Test
     @DisplayName("Should not find an active aluguel when the only one of the box is inactive")
-    void existsByBoxIdAndStatusTrueAndDeletedAtIsNullCase2() {
+    void existsByBoxIdAndStatusNotAndDeletedAtIsNullCase2() {
         List<AluguelEntity> alugueis = this.createScenario();
 
         // o aluguel 3 e inativo no box 3
-        boolean result = aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNull(alugueis.get(2).getBox().getId());
+        boolean result = aluguelRepository.existsByBoxIdAndStatusNotAndDeletedAtIsNull(alugueis.get(2).getBox().getId(), StatusAluguel.INATIVO);
 
         assertThat(result).isFalse();
     }
 
     @Test
     @DisplayName("Should not find an active aluguel when it is soft deleted")
-    void existsByBoxIdAndStatusTrueAndDeletedAtIsNullCase3() {
+    void existsByBoxIdAndStatusNotAndDeletedAtIsNullCase3() {
         List<AluguelEntity> alugueis = this.createScenario();
         AluguelEntity aluguel1 = alugueis.get(0);
         aluguel1.setDeletedAt(LocalDateTime.now());
         this.em.persist(aluguel1);
 
-        boolean result = aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNull(aluguel1.getBox().getId());
+        boolean result = aluguelRepository.existsByBoxIdAndStatusNotAndDeletedAtIsNull(aluguel1.getBox().getId(), StatusAluguel.INATIVO);
 
         assertThat(result).isFalse();
     }
 
     @Test
     @DisplayName("Should ignore the informed aluguel when looking for another active one")
-    void existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNotCase1() {
+    void existsByBoxIdAndStatusNotAndDeletedAtIsNullAndIdNotCase1() {
         List<AluguelEntity> alugueis = this.createScenario();
         AluguelEntity aluguel1 = alugueis.get(0);
 
         // o unico aluguel ativo do box 1 e o proprio aluguel 1
-        boolean result = aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNot(aluguel1.getBox().getId(), aluguel1.getId());
+        boolean result = aluguelRepository.existsByBoxIdAndStatusNotAndDeletedAtIsNullAndIdNot(aluguel1.getBox().getId(), StatusAluguel.INATIVO, aluguel1.getId());
 
         assertThat(result).isFalse();
     }
 
     @Test
     @DisplayName("Should find another active aluguel of the box besides the informed one")
-    void existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNotCase2() {
+    void existsByBoxIdAndStatusNotAndDeletedAtIsNullAndIdNotCase2() {
         List<AluguelEntity> alugueis = this.createScenario();
         AluguelEntity aluguel1 = alugueis.get(0);
 
         // um aluguel diferente do aluguel 1 e considerado outro aluguel ativo do box 1
-        boolean result = aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNot(aluguel1.getBox().getId(), UUID.randomUUID());
+        boolean result = aluguelRepository.existsByBoxIdAndStatusNotAndDeletedAtIsNullAndIdNot(aluguel1.getBox().getId(), StatusAluguel.INATIVO, UUID.randomUUID());
 
         assertThat(result).isTrue();
     }
@@ -259,9 +260,9 @@ class IAluguelRepositoryTest {
         this.em.persist(cliente2);
 
         // Cadastra tres alugueis, cada um com uma combinacao unica de box e cliente
-        AluguelEntity aluguel1 = AluguelEntity.builder().box(box1).cliente(cliente1).valor(BigDecimal.valueOf(150.00)).observacao("Aluguel 1").status(true).build();
-        AluguelEntity aluguel2 = AluguelEntity.builder().box(box2).cliente(cliente1).valor(BigDecimal.valueOf(180.00)).observacao("Aluguel 2").status(true).build();
-        AluguelEntity aluguel3 = AluguelEntity.builder().box(box3).cliente(cliente2).valor(BigDecimal.valueOf(200.00)).observacao("Aluguel 3").status(false).build();
+        AluguelEntity aluguel1 = AluguelEntity.builder().box(box1).cliente(cliente1).valor(BigDecimal.valueOf(150.00)).observacao("Aluguel 1").status(StatusAluguel.ATIVO).build();
+        AluguelEntity aluguel2 = AluguelEntity.builder().box(box2).cliente(cliente1).valor(BigDecimal.valueOf(180.00)).observacao("Aluguel 2").status(StatusAluguel.ATIVO).build();
+        AluguelEntity aluguel3 = AluguelEntity.builder().box(box3).cliente(cliente2).valor(BigDecimal.valueOf(200.00)).observacao("Aluguel 3").status(StatusAluguel.INATIVO).build();
         this.em.persist(aluguel1);
         this.em.persist(aluguel2);
         this.em.persist(aluguel3);

@@ -23,8 +23,8 @@ public interface IBoxRepository extends JpaRepository<BoxEntity, UUID> {
             AND (:numero IS NULL OR b.numero = :numero)
             AND (:disponivel IS NULL OR b.disponivel = :disponivel)
             AND (:alugado IS NULL
-                 OR (:alugado = TRUE AND EXISTS (SELECT a.id FROM AluguelEntity a WHERE a.box = b AND a.status = TRUE AND a.deletedAt IS NULL))
-                 OR (:alugado = FALSE AND NOT EXISTS (SELECT a.id FROM AluguelEntity a WHERE a.box = b AND a.status = TRUE AND a.deletedAt IS NULL)))
+                 OR (:alugado = TRUE AND EXISTS (SELECT a.id FROM AluguelEntity a WHERE (a.box = b OR a.boxAnterior = b) AND a.status <> com.nowbox.nowbox_api.modules.aluguel.entity.StatusAluguel.INATIVO AND a.deletedAt IS NULL))
+                 OR (:alugado = FALSE AND NOT EXISTS (SELECT a.id FROM AluguelEntity a WHERE (a.box = b OR a.boxAnterior = b) AND a.status <> com.nowbox.nowbox_api.modules.aluguel.entity.StatusAluguel.INATIVO AND a.deletedAt IS NULL)))
             """)
     Page<BoxEntity> findAllByFilter(@Param("idUnidade") UUID idUnidade,
                                      @Param("numero") String numero,

@@ -2,6 +2,7 @@ package com.nowbox.nowbox_api.modules.box.repository;
 
 import com.nowbox.nowbox_api.modules.cliente.ClienteTestFixtures;
 import com.nowbox.nowbox_api.modules.aluguel.entity.AluguelEntity;
+import com.nowbox.nowbox_api.modules.aluguel.entity.StatusAluguel;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
 import com.nowbox.nowbox_api.modules.estado.entity.EstadoEntity;
@@ -226,8 +227,8 @@ class IBoxRepositoryTest {
                 .documentoIdentidade(ClienteTestFixtures.documento(this.em)).enderecoCorrespondencia(true).senha("senha123").senhaTemporariaStatus(false).build();
         this.em.persist(cliente);
 
-        AluguelEntity ativo = AluguelEntity.builder().box(boxAtivo).cliente(cliente).valor(BigDecimal.valueOf(150.00)).status(true).build();
-        AluguelEntity inativo = AluguelEntity.builder().box(boxInativo).cliente(cliente).valor(BigDecimal.valueOf(150.00)).status(false).build();
+        AluguelEntity ativo = AluguelEntity.builder().box(boxAtivo).cliente(cliente).valor(BigDecimal.valueOf(150.00)).status(StatusAluguel.ATIVO).build();
+        AluguelEntity inativo = AluguelEntity.builder().box(boxInativo).cliente(cliente).valor(BigDecimal.valueOf(150.00)).status(StatusAluguel.INATIVO).build();
         this.em.persist(ativo);
         this.em.persist(inativo);
 

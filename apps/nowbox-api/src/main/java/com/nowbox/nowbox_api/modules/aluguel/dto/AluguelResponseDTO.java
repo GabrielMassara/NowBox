@@ -1,5 +1,6 @@
 package com.nowbox.nowbox_api.modules.aluguel.dto;
 
+import com.nowbox.nowbox_api.modules.aluguel.entity.StatusAluguel;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
 import lombok.*;
@@ -25,7 +26,17 @@ public class AluguelResponseDTO {
 
     private String observacao;
 
-    private Boolean status;
+    private StatusAluguel status;
+
+    private boolean contratoGerado;
+
+    private boolean distratoGerado;
+
+    private boolean contratoAssinado;
+
+    private boolean distratoAssinado;
+
+    private UUID idAditivoPendente;
 
     private LocalDateTime createdAt;
 

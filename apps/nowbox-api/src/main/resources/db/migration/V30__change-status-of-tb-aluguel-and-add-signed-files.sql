@@ -1,0 +1,6 @@
+ALTER TABLE tb_aluguel ALTER COLUMN status DROP DEFAULT;
+ALTER TABLE tb_aluguel ALTER COLUMN status TYPE VARCHAR(40) USING CASE WHEN status THEN 'ATIVO' ELSE 'INATIVO' END;
+ALTER TABLE tb_aluguel ALTER COLUMN status SET DEFAULT 'PENDENTE_ASSINATURA_CONTRATO';
+
+ALTER TABLE tb_aluguel ADD COLUMN id_arquivo_contrato_assinado UUID UNIQUE REFERENCES tb_arquivo (id);
+ALTER TABLE tb_aluguel ADD COLUMN id_arquivo_distrato_assinado UUID UNIQUE REFERENCES tb_arquivo (id);

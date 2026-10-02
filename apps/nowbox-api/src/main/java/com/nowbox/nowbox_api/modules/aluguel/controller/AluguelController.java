@@ -56,6 +56,13 @@ public class AluguelController {
         return aluguelService.encerrar(id);
     }
 
+    @PatchMapping("/{id}/cancelar-pendencia")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_CANCELAR_PENDENCIA') and @acessoUnidadeService.temAcessoAluguel(#id)")
+    public AluguelResponseDTO cancelarPendencia(@PathVariable UUID id) {
+        return aluguelService.cancelarPendencia(id);
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_EXCLUIR') and @acessoUnidadeService.temAcessoAluguel(#id)")

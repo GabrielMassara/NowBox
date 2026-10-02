@@ -30,4 +30,10 @@ public class AditivoResponseDTO {
 
     private LocalDateTime salvoEm;
 
+    private boolean pendenteAssinatura;
+
+    private boolean assinado;
+
+    private boolean cancelado;
+
 }

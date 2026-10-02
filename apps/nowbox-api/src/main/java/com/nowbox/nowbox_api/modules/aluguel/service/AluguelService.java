@@ -6,11 +6,14 @@ import com.nowbox.nowbox_api.modules.aluguel.dto.AluguelCreateDTO;
 import com.nowbox.nowbox_api.modules.aluguel.dto.AluguelFilterDTO;
 import com.nowbox.nowbox_api.modules.aluguel.dto.AluguelResponseDTO;
 import com.nowbox.nowbox_api.modules.aluguel.entity.AluguelEntity;
+import com.nowbox.nowbox_api.modules.aluguel.entity.StatusAluguel;
 import com.nowbox.nowbox_api.modules.aluguel.repository.IAluguelRepository;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.box.repository.IBoxRepository;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
 import com.nowbox.nowbox_api.modules.cliente.repository.IClienteRepository;
+import com.nowbox.nowbox_api.modules.contrato.entity.ArquivoAluguelEntity;
+import com.nowbox.nowbox_api.modules.contrato.repository.IArquivoAluguelRepository;
 import com.nowbox.nowbox_api.modules.contrato.messaging.ContratoSolicitadoMessage;
 import com.nowbox.nowbox_api.modules.contrato.messaging.ContratoSolicitadoMessage.Alteracao;
 import com.nowbox.nowbox_api.modules.email.messaging.EmailSolicitadoMessage;
@@ -42,6 +45,7 @@ public class AluguelService {
     private final IAluguelRepository aluguelRepository;
     private final IBoxRepository boxRepository;
     private final IClienteRepository clienteRepository;
+    private final IArquivoAluguelRepository arquivoAluguelRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     public Page<AluguelResponseDTO> listAllByFilter(Pageable pageable, AluguelFilterDTO filtro) {
@@ -49,7 +53,7 @@ public class AluguelService {
         // Verificacao dos parametros passados para filtro
         UUID idBox = null;
         UUID idCliente = null;
-        Boolean status = null;
+        StatusAluguel status = null;
 
         if(filtro != null) {
             if(StringUtils.hasText(String.valueOf(filtro.getIdBox()))) {
@@ -96,22 +100,22 @@ public class AluguelService {
         // Um box bloqueado nao pode ser alugado
         validarBoxLiberado(box.get());
 
-        // Um box so pode ter um aluguel ativo por vez
-        if(aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNull(aluguel.getIdBox())) {
+        // Um box so pode ter um aluguel em andamento por vez (pendente de assinatura ou ativo). Tambem fica ocupado o box que um aluguel acabou de deixar enquanto o aditivo dele aguarda assinatura
+        if(aluguelRepository.existsByBoxIdAndStatusNotAndDeletedAtIsNull(aluguel.getIdBox(), StatusAluguel.INATIVO)
+                || aluguelRepository.existsByBoxAnteriorIdAndStatusAndDeletedAtIsNull(aluguel.getIdBox(), StatusAluguel.PENDENTE_ASSINATURA_ADITIVO)) {
             throw new ConflitoException("O box já possui um aluguel ativo");
         }
 
-        // Todo aluguel nasce ativo. A situacao so muda pelo encerramento do contrato
+        // Todo aluguel nasce pendente da assinatura do contrato. Ele so fica ativo quando o contrato assinado e enviado
         AluguelEntity created = aluguelRepository.save(AluguelEntity.builder()
                 .box(box.get())
                 .cliente(cliente.get())
                 .valor(aluguel.getValor())
                 .observacao(aluguel.getObservacao())
-                .status(true)
+                .status(StatusAluguel.PENDENTE_ASSINATURA_CONTRATO)
                 .build());
 
         solicitarContrato(created);
-        solicitarEmail(created, EmailSolicitadoMessage::aluguelRegistrado);
 
         return toResponseDTO(created);
     }
@@ -138,9 +142,9 @@ public class AluguelService {
 
         AluguelEntity atual = existente.get();
 
-        // Um contrato encerrado nao pode ser alterado nem reativado
-        if(!Boolean.TRUE.equals(atual.getStatus())) {
-            throw new ConflitoException("O contrato deste aluguel foi encerrado e não pode ser alterado");
+        // So um aluguel ativo pode ser alterado. Antes disso o contrato ainda nao foi assinado e depois o contrato esta encerrado ou em encerramento
+        if(atual.getStatus() != StatusAluguel.ATIVO) {
+            throw new ConflitoException("O aluguel só pode ser alterado enquanto o contrato está ativo");
         }
 
         // Um box bloqueado nao pode ser alugado. So valida quando o aluguel troca de box, para que o bloqueio do box atual nao impeça editar o aluguel que ja estava ativo nele
@@ -150,7 +154,8 @@ public class AluguelService {
         }
 
         // Um box so pode ter um aluguel ativo por vez, desconsiderando o proprio aluguel
-        if(aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNot(aluguel.getIdBox(), id)) {
+        if(aluguelRepository.existsByBoxIdAndStatusNotAndDeletedAtIsNullAndIdNot(aluguel.getIdBox(), StatusAluguel.INATIVO, id)
+                || aluguelRepository.existsByBoxAnteriorIdAndStatusAndDeletedAtIsNullAndIdNot(aluguel.getIdBox(), StatusAluguel.PENDENTE_ASSINATURA_ADITIVO, id)) {
             throw new ConflitoException("O box já possui um aluguel ativo");
         }
 
@@ -163,9 +168,16 @@ public class AluguelService {
                 .cliente(cliente.get())
                 .valor(aluguel.getValor())
                 .observacao(aluguel.getObservacao())
-                .status(atual.getStatus())
+                // Com alteracao o aditivo precisa ser assinado antes de o aluguel voltar a ficar ativo
+                .status(alteracoes.isEmpty() ? atual.getStatus() : StatusAluguel.PENDENTE_ASSINATURA_ADITIVO)
                 .contrato(atual.getContrato())
                 .distrato(atual.getDistrato())
+                .contratoAssinado(atual.getContratoAssinado())
+                .distratoAssinado(atual.getDistratoAssinado())
+                .boxAnterior(alteracoes.isEmpty() ? null : atual.getBox())
+                .clienteAnterior(alteracoes.isEmpty() ? null : atual.getCliente())
+                .valorAnterior(alteracoes.isEmpty() ? null : atual.getValor())
+                .observacaoAnterior(alteracoes.isEmpty() ? null : atual.getObservacao())
                 .createdAt(atual.getCreatedAt())
                 .build());
 
@@ -178,23 +190,66 @@ public class AluguelService {
         return toResponseDTO(updated);
     }
 
-    // Encerra o contrato: o aluguel fica inativo e gera um distrato. Nao existe o caminho inverso, um aluguel encerrado nao volta a ficar ativo
+    // Inicia o encerramento do contrato: gera o distrato e o aluguel fica pendente da assinatura dele. So vira inativo quando o distrato assinado e enviado
     @Transactional
     public AluguelResponseDTO encerrar(UUID id) throws NaoEncontradoException {
         AluguelEntity aluguel = aluguelRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new NaoEncontradoException("Aluguel não encontrado"));
 
-        if(!Boolean.TRUE.equals(aluguel.getStatus())) {
-            throw new ConflitoException("O contrato deste aluguel já foi encerrado");
+        if(aluguel.getStatus() != StatusAluguel.ATIVO) {
+            throw new ConflitoException("Apenas um contrato ativo pode ser encerrado");
         }
 
-        aluguel.setStatus(false);
+        // Um distrato de uma tentativa cancelada antes nao vale para esta: a tela espera o novo ficar pronto
+        aluguel.setDistrato(null);
+        aluguel.setStatus(StatusAluguel.PENDENTE_ASSINATURA_DISTRATO);
         AluguelEntity encerrado = aluguelRepository.save(aluguel);
 
         solicitarDistrato(encerrado);
-        solicitarEmail(encerrado, EmailSolicitadoMessage::aluguelEncerrado);
 
         return toResponseDTO(encerrado);
+    }
+
+    // Desiste da assinatura pendente: o contrato nunca assinado deixa o aluguel inativo, o aditivo desfaz as alteracoes e o distrato mantem o aluguel ativo
+    @Transactional
+    public AluguelResponseDTO cancelarPendencia(UUID id) throws NaoEncontradoException {
+        AluguelEntity aluguel = aluguelRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new NaoEncontradoException("Aluguel não encontrado"));
+
+        switch (aluguel.getStatus()) {
+            case PENDENTE_ASSINATURA_CONTRATO -> aluguel.setStatus(StatusAluguel.INATIVO);
+            case PENDENTE_ASSINATURA_DISTRATO -> {
+                aluguel.setDistrato(null);
+                aluguel.setStatus(StatusAluguel.ATIVO);
+            }
+            case PENDENTE_ASSINATURA_ADITIVO -> restaurarAntesDoAditivo(aluguel);
+            default -> throw new ConflitoException("O aluguel não está aguardando assinatura");
+        }
+
+        return toResponseDTO(aluguelRepository.save(aluguel));
+    }
+
+    private void restaurarAntesDoAditivo(AluguelEntity aluguel) {
+        // O box anterior fica reservado enquanto o aditivo esta pendente, entao ninguem o alugou e ele sempre pode ser restaurado
+        if (aluguel.getBoxAnterior() != null) {
+            aluguel.setBox(aluguel.getBoxAnterior());
+        }
+        if (aluguel.getClienteAnterior() != null) {
+            aluguel.setCliente(aluguel.getClienteAnterior());
+        }
+        aluguel.setValor(aluguel.getValorAnterior());
+        aluguel.setObservacao(aluguel.getObservacaoAnterior());
+        aluguel.setBoxAnterior(null);
+        aluguel.setClienteAnterior(null);
+        aluguel.setValorAnterior(null);
+        aluguel.setObservacaoAnterior(null);
+        aluguel.setStatus(StatusAluguel.ATIVO);
+
+        arquivoAluguelRepository.findFirstByAluguelIdAndPendenteAssinaturaTrueOrderBySalvoEmDesc(aluguel.getId()).ifPresent(aditivo -> {
+            aditivo.setPendenteAssinatura(false);
+            aditivo.setCancelado(true);
+            arquivoAluguelRepository.save(aditivo);
+        });
     }
 
     @Transactional
@@ -263,6 +318,16 @@ public class AluguelService {
         }
     }
 
+    private UUID buscarIdAditivoPendente(AluguelEntity aluguel) {
+        if (aluguel.getStatus() != StatusAluguel.PENDENTE_ASSINATURA_ADITIVO) {
+            return null;
+        }
+
+        return arquivoAluguelRepository.findFirstByAluguelIdAndPendenteAssinaturaTrueOrderBySalvoEmDesc(aluguel.getId())
+                .map(ArquivoAluguelEntity::getId)
+                .orElse(null);
+    }
+
     private AluguelResponseDTO toResponseDTO(AluguelEntity entidade) {
         return AluguelResponseDTO.builder()
                 .id(entidade.getId())
@@ -271,6 +336,11 @@ public class AluguelService {
                 .valor(entidade.getValor())
                 .observacao(entidade.getObservacao())
                 .status(entidade.getStatus())
+                .contratoGerado(entidade.getContrato() != null)
+                .distratoGerado(entidade.getDistrato() != null)
+                .contratoAssinado(entidade.getContratoAssinado() != null)
+                .distratoAssinado(entidade.getDistratoAssinado() != null)
+                .idAditivoPendente(buscarIdAditivoPendente(entidade))
                 .createdAt(entidade.getCreatedAt())
                 .deletedAt(entidade.getDeletedAt())
                 .build();

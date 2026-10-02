@@ -41,8 +41,9 @@ public class AluguelEntity {
     @Column(columnDefinition = "TEXT")
     private String observacao;
 
-    @Column(name = "status")
-    private Boolean status;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 40)
+    private StatusAluguel status;
 
     @OneToOne
     @JoinColumn(name = "id_arquivo_contrato")
@@ -51,6 +52,28 @@ public class AluguelEntity {
     @OneToOne
     @JoinColumn(name = "id_arquivo_distrato")
     private ArquivoEntity distrato;
+
+    @OneToOne
+    @JoinColumn(name = "id_arquivo_contrato_assinado")
+    private ArquivoEntity contratoAssinado;
+
+    @OneToOne
+    @JoinColumn(name = "id_arquivo_distrato_assinado")
+    private ArquivoEntity distratoAssinado;
+
+    @ManyToOne
+    @JoinColumn(name = "id_box_anterior")
+    private BoxEntity boxAnterior;
+
+    @ManyToOne
+    @JoinColumn(name = "id_cliente_anterior")
+    private ClienteEntity clienteAnterior;
+
+    @Column(name = "valor_anterior", precision = 10, scale = 2)
+    private BigDecimal valorAnterior;
+
+    @Column(name = "observacao_anterior", columnDefinition = "TEXT")
+    private String observacaoAnterior;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

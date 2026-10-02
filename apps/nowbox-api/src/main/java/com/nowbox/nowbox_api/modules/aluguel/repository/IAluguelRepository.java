@@ -1,6 +1,7 @@
 package com.nowbox.nowbox_api.modules.aluguel.repository;
 
 import com.nowbox.nowbox_api.modules.aluguel.entity.AluguelEntity;
+import com.nowbox.nowbox_api.modules.aluguel.entity.StatusAluguel;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -23,15 +24,20 @@ public interface IAluguelRepository extends JpaRepository<AluguelEntity, UUID> {
             """)
     Page<AluguelEntity> findAllByFilter(@Param("idBox") UUID idBox,
                                         @Param("idCliente") UUID idCliente,
-                                        @Param("status") Boolean status,
+                                        @Param("status") StatusAluguel status,
                                         Pageable pageable);
 
     Optional<AluguelEntity> findByIdAndDeletedAtIsNull(UUID id);
 
-    // Verifica se o box ja possui algum aluguel ativo
-    boolean existsByBoxIdAndStatusTrueAndDeletedAtIsNull(UUID idBox);
+    // Verifica se o box ja esta ocupado por algum aluguel, ou seja, com status diferente do informado (inativo)
+    boolean existsByBoxIdAndStatusNotAndDeletedAtIsNull(UUID idBox, StatusAluguel status);
 
-    // Verifica se o box possui algum aluguel ativo alem do informado
-    boolean existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNot(UUID idBox, UUID id);
+    // Box de origem de um aluguel que teve o box trocado e aguarda a assinatura do aditivo. Enquanto isso ele nao pode ser alugado
+    boolean existsByBoxAnteriorIdAndStatusAndDeletedAtIsNull(UUID idBox, StatusAluguel status);
+
+    boolean existsByBoxAnteriorIdAndStatusAndDeletedAtIsNullAndIdNot(UUID idBox, StatusAluguel status, UUID id);
+
+    // Verifica se o box esta ocupado por algum aluguel alem do informado
+    boolean existsByBoxIdAndStatusNotAndDeletedAtIsNullAndIdNot(UUID idBox, StatusAluguel status, UUID id);
 
 }

@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 // tb_arquivo_aluguel guarda so os aditivos. O contrato original e referenciado direto em tb_aluguel
@@ -14,5 +15,8 @@ public interface IArquivoAluguelRepository extends JpaRepository<ArquivoAluguelE
 
     // Historico de aditivos de um aluguel do mais recente para o mais antigo
     Page<ArquivoAluguelEntity> findByAluguelIdOrderBySalvoEmDesc(UUID idAluguel, Pageable pageable);
+
+    // Aditivo que ainda aguarda a assinatura
+    Optional<ArquivoAluguelEntity> findFirstByAluguelIdAndPendenteAssinaturaTrueOrderBySalvoEmDesc(UUID idAluguel);
 
 }
