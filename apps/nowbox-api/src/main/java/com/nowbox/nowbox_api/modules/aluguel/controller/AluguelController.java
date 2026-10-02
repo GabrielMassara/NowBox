@@ -49,6 +49,13 @@ public class AluguelController {
         return aluguelService.update(aluguel, id);
     }
 
+    @PatchMapping("/{id}/encerrar")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_ENCERRAR') and @acessoUnidadeService.temAcessoAluguel(#id)")
+    public AluguelResponseDTO encerrar(@PathVariable UUID id) {
+        return aluguelService.encerrar(id);
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAuthority('MOD_ALUGUEL_OPE_EXCLUIR') and @acessoUnidadeService.temAcessoAluguel(#id)")

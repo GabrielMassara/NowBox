@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.UUID;
 
 // Solicitacao de geracao de documento enviada ao worker (nowbox-jobs). Carrega uma copia dos dados para que o worker nao precise consultar o banco.
-// O tipo CONTRATO gera o contrato original do aluguel e o ADITIVO gera um documento com as alteracoes feitas nele
+// O tipo CONTRATO gera o contrato original do aluguel, o ADITIVO gera um documento com as alteracoes feitas nele e o DISTRATO encerra o contrato
 public record ContratoSolicitadoMessage(
         UUID idSolicitacao,
         Tipo tipo,
@@ -28,7 +28,8 @@ public record ContratoSolicitadoMessage(
 
     public enum Tipo {
         CONTRATO,
-        ADITIVO
+        ADITIVO,
+        DISTRATO
     }
 
     public record Alteracao(String campo, String valorAnterior, String valorNovo) {
@@ -58,6 +59,10 @@ public record ContratoSolicitadoMessage(
 
     public static ContratoSolicitadoMessage aditivo(AluguelEntity aluguel, List<Alteracao> alteracoes) {
         return de(aluguel, Tipo.ADITIVO, alteracoes);
+    }
+
+    public static ContratoSolicitadoMessage distrato(AluguelEntity aluguel) {
+        return de(aluguel, Tipo.DISTRATO, List.of());
     }
 
     private static ContratoSolicitadoMessage de(AluguelEntity aluguel, Tipo tipo, List<Alteracao> alteracoes) {

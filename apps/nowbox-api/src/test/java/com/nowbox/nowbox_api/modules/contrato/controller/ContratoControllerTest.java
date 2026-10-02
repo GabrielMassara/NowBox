@@ -98,4 +98,15 @@ class ContratoControllerTest {
         mockMvc.perform(get("/v1/contrato/aluguel/{id}/download", idAluguel))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    @DisplayName("Should download the distrato of an aluguel")
+    void downloadDistrato() throws Exception {
+        UUID idAluguel = UUID.randomUUID();
+        when(contratoService.downloadDistrato(idAluguel)).thenReturn(new ContratoDownloadDTO("distrato.pdf", "application/pdf", 1L, new ByteArrayInputStream(new byte[]{9})));
+
+        mockMvc.perform(get("/v1/contrato/aluguel/{id}/distrato/download", idAluguel))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, containsString("distrato.pdf")));
+    }
 }

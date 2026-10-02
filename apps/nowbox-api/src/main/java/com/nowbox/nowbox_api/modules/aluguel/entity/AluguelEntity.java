@@ -48,6 +48,10 @@ public class AluguelEntity {
     @JoinColumn(name = "id_arquivo_contrato")
     private ArquivoEntity contrato;
 
+    @OneToOne
+    @JoinColumn(name = "id_arquivo_distrato")
+    private ArquivoEntity distrato;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

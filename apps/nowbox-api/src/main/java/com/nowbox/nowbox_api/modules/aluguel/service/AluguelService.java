@@ -94,21 +94,20 @@ public class AluguelService {
         }
 
         // Um box bloqueado nao pode ser alugado
-        if(Boolean.TRUE.equals(aluguel.getStatus())) {
-            validarBoxLiberado(box.get());
-        }
+        validarBoxLiberado(box.get());
 
         // Um box so pode ter um aluguel ativo por vez
-        if(Boolean.TRUE.equals(aluguel.getStatus()) && aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNull(aluguel.getIdBox())) {
+        if(aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNull(aluguel.getIdBox())) {
             throw new ConflitoException("O box já possui um aluguel ativo");
         }
 
+        // Todo aluguel nasce ativo. A situacao so muda pelo encerramento do contrato
         AluguelEntity created = aluguelRepository.save(AluguelEntity.builder()
                 .box(box.get())
                 .cliente(cliente.get())
                 .valor(aluguel.getValor())
                 .observacao(aluguel.getObservacao())
-                .status(aluguel.getStatus())
+                .status(true)
                 .build());
 
         solicitarContrato(created);
@@ -137,30 +136,37 @@ public class AluguelService {
             throw new NaoEncontradoException("Cliente não encontrado");
         }
 
-        // Um box bloqueado nao pode ser alugado. so valida quando o aluguel passa a ficar ativo neste box, para que o bloqueio de um box ja alugado nao impeça editar o aluguel que ja estava ativo nele
         AluguelEntity atual = existente.get();
-        boolean jaAtivoNoBox = Boolean.TRUE.equals(atual.getStatus()) && atual.getBox() != null && aluguel.getIdBox().equals(atual.getBox().getId());
-        if(Boolean.TRUE.equals(aluguel.getStatus()) && !jaAtivoNoBox) {
+
+        // Um contrato encerrado nao pode ser alterado nem reativado
+        if(!Boolean.TRUE.equals(atual.getStatus())) {
+            throw new ConflitoException("O contrato deste aluguel foi encerrado e não pode ser alterado");
+        }
+
+        // Um box bloqueado nao pode ser alugado. So valida quando o aluguel troca de box, para que o bloqueio do box atual nao impeça editar o aluguel que ja estava ativo nele
+        boolean mudouDeBox = atual.getBox() == null || !aluguel.getIdBox().equals(atual.getBox().getId());
+        if(mudouDeBox) {
             validarBoxLiberado(box.get());
         }
 
         // Um box so pode ter um aluguel ativo por vez, desconsiderando o proprio aluguel
-        if(Boolean.TRUE.equals(aluguel.getStatus()) && aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNot(aluguel.getIdBox(), id)) {
+        if(aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNot(aluguel.getIdBox(), id)) {
             throw new ConflitoException("O box já possui um aluguel ativo");
         }
 
         List<Alteracao> alteracoes = identificarAlteracoes(atual, box.get(), cliente.get(), aluguel);
 
-        // O contrato original e mantido. A edicao so gera um aditivo descrevendo o que mudou
+        // O contrato original e mantido e a situacao nao e alterada aqui. A edicao so gera um aditivo descrevendo o que mudou
         AluguelEntity updated = aluguelRepository.save(AluguelEntity.builder()
                 .id(id)
                 .box(box.get())
                 .cliente(cliente.get())
                 .valor(aluguel.getValor())
                 .observacao(aluguel.getObservacao())
-                .status(aluguel.getStatus())
+                .status(atual.getStatus())
                 .contrato(atual.getContrato())
-                .createdAt(existente.get().getCreatedAt())
+                .distrato(atual.getDistrato())
+                .createdAt(atual.getCreatedAt())
                 .build());
 
         // Sem alteracao nao ha o que aditar nem o que avisar ao cliente
@@ -170,6 +176,25 @@ public class AluguelService {
         }
 
         return toResponseDTO(updated);
+    }
+
+    // Encerra o contrato: o aluguel fica inativo e gera um distrato. Nao existe o caminho inverso, um aluguel encerrado nao volta a ficar ativo
+    @Transactional
+    public AluguelResponseDTO encerrar(UUID id) throws NaoEncontradoException {
+        AluguelEntity aluguel = aluguelRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new NaoEncontradoException("Aluguel não encontrado"));
+
+        if(!Boolean.TRUE.equals(aluguel.getStatus())) {
+            throw new ConflitoException("O contrato deste aluguel já foi encerrado");
+        }
+
+        aluguel.setStatus(false);
+        AluguelEntity encerrado = aluguelRepository.save(aluguel);
+
+        solicitarDistrato(encerrado);
+        solicitarEmail(encerrado, EmailSolicitadoMessage::aluguelEncerrado);
+
+        return toResponseDTO(encerrado);
     }
 
     @Transactional
@@ -191,6 +216,11 @@ public class AluguelService {
         eventPublisher.publishEvent(ContratoSolicitadoMessage.aditivo(aluguel, alteracoes));
     }
 
+    // Solicita o distrato do contrato, tambem de forma assincrona
+    private void solicitarDistrato(AluguelEntity aluguel) {
+        eventPublisher.publishEvent(ContratoSolicitadoMessage.distrato(aluguel));
+    }
+
     // Compara o aluguel salvo com os dados recebidos e lista os campos que mudaram
     private List<Alteracao> identificarAlteracoes(AluguelEntity atual, BoxEntity novoBox, ClienteEntity novoCliente, AluguelCreateDTO novo) {
         List<Alteracao> alteracoes = new ArrayList<>();
@@ -198,7 +228,6 @@ public class AluguelService {
         adicionarSeMudou(alteracoes, "Box", atual.getBox() != null ? atual.getBox().getNumero() : null, novoBox.getNumero());
         adicionarSeMudou(alteracoes, "Cliente", atual.getCliente() != null ? atual.getCliente().getNome() : null, novoCliente.getNome());
         adicionarSeMudou(alteracoes, "Valor", formatarValor(atual.getValor()), formatarValor(novo.getValor()));
-        adicionarSeMudou(alteracoes, "Situação", formatarSituacao(atual.getStatus()), formatarSituacao(novo.getStatus()));
         adicionarSeMudou(alteracoes, "Observação", textoOuTraco(atual.getObservacao()), textoOuTraco(novo.getObservacao()));
 
         return alteracoes;
@@ -214,15 +243,11 @@ public class AluguelService {
         return valor == null ? "-" : NumberFormat.getCurrencyInstance(PT_BR).format(valor);
     }
 
-    private String formatarSituacao(Boolean status) {
-        return Boolean.TRUE.equals(status) ? "Ativo" : "Inativo";
-    }
-
     private String textoOuTraco(String texto) {
         return StringUtils.hasText(texto) ? texto.trim() : "-";
     }
 
-    // Avisa o cliente do aluguel (registrado ou alterado). O envio é assincrono pelo nowbox-jobs e só acontece depois do commit e é ignorado se o cliente nao tem email
+    // Avisa o cliente do aluguel (registrado, alterado ou encerrado). O envio é assincrono pelo nowbox-jobs e só acontece depois do commit e é ignorado se o cliente nao tem email
     private void solicitarEmail(AluguelEntity aluguel, Function<AluguelEntity, EmailSolicitadoMessage> mensagem) {
         if(!StringUtils.hasText(aluguel.getCliente().getEmail())) {
             return;
