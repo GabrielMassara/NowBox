@@ -48,6 +48,14 @@ public record ContratoSolicitadoMessage(
     ) {
     }
 
+    public String statusEsperado() {
+        return switch (tipo) {
+            case CONTRATO -> "PENDENTE_ASSINATURA_CONTRATO";
+            case ADITIVO -> "PENDENTE_ASSINATURA_ADITIVO";
+            case DISTRATO -> "PENDENTE_ASSINATURA_DISTRATO";
+        };
+    }
+
     public boolean aditivo() {
         return tipo == Tipo.ADITIVO;
     }
@@ -56,7 +64,6 @@ public record ContratoSolicitadoMessage(
         return tipo == Tipo.DISTRATO;
     }
 
-    // Uma alteracao por linha, usada no PDF e como descricao do aditivo no historico
     public String descricaoAlteracoes() {
         if (alteracoes == null) {
             return "";

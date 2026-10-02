@@ -36,6 +36,24 @@ class ContratoWorkerTest {
     @InjectMocks
     private ContratoWorker worker;
 
+    @org.junit.jupiter.api.BeforeEach
+    void aluguelAguardandoDocumento() {
+        org.mockito.Mockito.lenient().when(contratoRepository.aguardandoGeracao(any())).thenReturn(true);
+    }
+
+    @Test
+    @DisplayName("Should discard the request without generating anything when the signature was cancelled meanwhile")
+    void processarAssinaturaCancelada() {
+        ContratoSolicitadoMessage solicitacao = ContratoPdfGeneratorTest.solicitacao(true);
+        when(contratoRepository.aguardandoGeracao(solicitacao)).thenReturn(false);
+
+        worker.processar(solicitacao);
+
+        verify(pdfGenerator, never()).gerar(any());
+        verify(storageService, never()).gravar(any(), any(), any());
+        verify(contratoRepository, never()).registrar(any(), any(), any(), any(), any(), anyLong(), any());
+    }
+
     @Test
     @DisplayName("Should generate the PDF, store it in the bucket and register the arquivo in the database")
     void processarCase1() {
