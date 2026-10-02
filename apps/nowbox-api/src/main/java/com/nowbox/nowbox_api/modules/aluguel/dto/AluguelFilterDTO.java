@@ -1,5 +1,6 @@
 package com.nowbox.nowbox_api.modules.aluguel.dto;
 
+import com.nowbox.nowbox_api.modules.aluguel.entity.StatusAluguel;
 import lombok.*;
 
 import java.util.UUID;
@@ -15,6 +16,6 @@ public class AluguelFilterDTO {
 
     private UUID idCliente;
 
-    private Boolean status;
+    private StatusAluguel status;
 
 }

@@ -6,6 +6,7 @@ import com.nowbox.nowbox_api.modules.aluguel.dto.AluguelCreateDTO;
 import com.nowbox.nowbox_api.modules.aluguel.dto.AluguelFilterDTO;
 import com.nowbox.nowbox_api.modules.aluguel.dto.AluguelResponseDTO;
 import com.nowbox.nowbox_api.modules.aluguel.entity.AluguelEntity;
+import com.nowbox.nowbox_api.modules.aluguel.entity.StatusAluguel;
 import com.nowbox.nowbox_api.modules.aluguel.repository.IAluguelRepository;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.box.repository.IBoxRepository;
@@ -52,6 +53,9 @@ class AluguelServiceTest {
     private IClienteRepository clienteRepository;
 
     @Mock
+    private com.nowbox.nowbox_api.modules.contrato.repository.IArquivoAluguelRepository arquivoAluguelRepository;
+
+    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
@@ -72,14 +76,14 @@ class AluguelServiceTest {
         ClienteEntity cliente = ClienteEntity.builder().id(idCliente).nome("Cliente").build();
 
         // inicializa o filtro
-        AluguelFilterDTO filtro = AluguelFilterDTO.builder().idBox(idBox).idCliente(idCliente).status(true).build();
+        AluguelFilterDTO filtro = AluguelFilterDTO.builder().idBox(idBox).idCliente(idCliente).status(StatusAluguel.ATIVO).build();
 
         // Mock para simular resposta do Repository
-        AluguelEntity entidade = AluguelEntity.builder().box(box).cliente(cliente).valor(BigDecimal.valueOf(150.00)).status(true).build();
+        AluguelEntity entidade = AluguelEntity.builder().box(box).cliente(cliente).valor(BigDecimal.valueOf(150.00)).status(StatusAluguel.ATIVO).build();
         Page<AluguelEntity> paginaMock = new PageImpl<>(List.of(entidade));
 
         // Quando chamar findAllByFilter ele retorna o mock paginaMock
-        when(aluguelRepository.findAllByFilter(idBox, idCliente, true, null)).thenReturn(paginaMock);
+        when(aluguelRepository.findAllByFilter(idBox, idCliente, StatusAluguel.ATIVO, null)).thenReturn(paginaMock);
 
         // chama a funcao listAllByFilter
         Page<AluguelResponseDTO> result = aluguelService.listAllByFilter(null, filtro);
@@ -87,10 +91,10 @@ class AluguelServiceTest {
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().getFirst().getBox()).isEqualTo(box);
         assertThat(result.getContent().getFirst().getCliente()).isEqualTo(cliente);
-        assertThat(result.getContent().getFirst().getStatus()).isTrue();
+        assertThat(result.getContent().getFirst().getStatus()).isEqualTo(StatusAluguel.ATIVO);
 
         // verifica se ao chamar a findAllByFilter ele passou os mesmos parametros
-        verify(aluguelRepository).findAllByFilter(idBox, idCliente, true, null);
+        verify(aluguelRepository).findAllByFilter(idBox, idCliente, StatusAluguel.ATIVO, null);
     }
 
     @Test
@@ -226,7 +230,7 @@ class AluguelServiceTest {
         UUID id = UUID.randomUUID();
         AluguelEntity entidadeSalva = AluguelEntity.builder()
                 .id(id).box(box).cliente(cliente).valor(BigDecimal.valueOf(150.00))
-                .observacao("Observação teste").status(true).createdAt(LocalDateTime.now()).build();
+                .observacao("Observação teste").status(StatusAluguel.PENDENTE_ASSINATURA_CONTRATO).createdAt(LocalDateTime.now()).build();
         when(aluguelRepository.save(any(AluguelEntity.class))).thenReturn(entidadeSalva);
 
         // chama a funcao create
@@ -237,49 +241,40 @@ class AluguelServiceTest {
         assertThat(result.getCliente()).isEqualTo(cliente);
         assertThat(result.getValor()).isEqualTo(BigDecimal.valueOf(150.00));
         assertThat(result.getObservacao()).isEqualTo("Observação teste");
-        assertThat(result.getStatus()).isTrue();
+        assertThat(result.getStatus()).isEqualTo(StatusAluguel.PENDENTE_ASSINATURA_CONTRATO);
 
         // verifica se buscou o box e o cliente antes de criar
         verify(boxRepository).findByIdAndDeletedAtIsNull(idBox);
         verify(clienteRepository).findByIdAndDeletedAtIsNull(idCliente);
 
         // verifica se ao chamar o save ele passou uma entidade com os dados corretos
-        verify(aluguelRepository).save(argThat(e -> e.getBox().equals(box) && e.getCliente().equals(cliente) && e.getValor().equals(BigDecimal.valueOf(150.00)) && e.getStatus()));
+        verify(aluguelRepository).save(argThat(e -> e.getBox().equals(box) && e.getCliente().equals(cliente) && e.getValor().equals(BigDecimal.valueOf(150.00)) && e.getStatus() == StatusAluguel.PENDENTE_ASSINATURA_CONTRATO));
 
         // verifica se solicitou a geracao do contrato apenas publicando o evento, sem esperar o contrato ficar pronto
         verify(eventPublisher).publishEvent(argThat((Object e) -> e instanceof ContratoSolicitadoMessage m && m.tipo() == ContratoSolicitadoMessage.Tipo.CONTRATO && m.idAluguel().equals(id) && m.idBox().equals(idBox) && m.numeroBox().equals("101")));
     }
 
     @Test
-    @DisplayName("Should request the aluguel registered email when creating an aluguel for a cliente with email")
+    @DisplayName("Should not request the aluguel registered email on creation, only when the signed contract activates the aluguel")
     void createEmailCase1() {
         UUID idBox = UUID.randomUUID();
         UUID idCliente = UUID.randomUUID();
-        BoxEntity box = BoxEntity.builder().id(idBox).numero("101")
-                .unidade(UnidadeEntity.builder().id(UUID.randomUUID()).nome("Unidade Centro").cnpj("11111111111111").build()).build();
-        ClienteEntity cliente = ClienteEntity.builder().id(idCliente).nome("Maria").email(" maria@email.com ").build();
+        BoxEntity box = boxBuilder().id(idBox).numero("101").build();
+        ClienteEntity cliente = ClienteEntity.builder().id(idCliente).nome("Maria").email("maria@email.com").build();
 
         AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(new BigDecimal("1234.50")).build();
 
         when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
         when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
-        when(aluguelRepository.save(any(AluguelEntity.class))).thenReturn(AluguelEntity.builder()
-                .id(UUID.randomUUID()).box(box).cliente(cliente).valor(new BigDecimal("1234.50")).status(true).build());
+        when(aluguelRepository.save(any(AluguelEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         aluguelService.create(aluguel);
 
-        // o email so e solicitado (publicando o evento), o envio e feito de forma assincrona pelo worker
-        verify(eventPublisher).publishEvent(argThat((Object e) -> e instanceof EmailSolicitadoMessage m
-                && m.template() == EmailSolicitadoMessage.Template.ALUGUEL_REGISTRADO
-                && m.destinatario().equals("maria@email.com")
-                && m.nomeDestinatario().equals("Maria")
-                && m.variaveis().get("numeroBox").equals("101")
-                && m.variaveis().get("unidade").equals("Unidade Centro")
-                && m.variaveis().get("valor").replace(' ', ' ').equals("R$ 1.234,50")));
+        verify(eventPublisher, never()).publishEvent(argThat((Object e) -> e instanceof EmailSolicitadoMessage));
     }
 
     @Test
-    @DisplayName("Should not request the aluguel registered email when the cliente has no email")
+    @DisplayName("Should not request any email when creating an aluguel for a cliente without email")
     void createEmailCase2() {
         UUID idBox = UUID.randomUUID();
         UUID idCliente = UUID.randomUUID();
@@ -291,7 +286,7 @@ class AluguelServiceTest {
         when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
         when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
         when(aluguelRepository.save(any(AluguelEntity.class))).thenReturn(AluguelEntity.builder()
-                .id(UUID.randomUUID()).box(box).cliente(cliente).valor(BigDecimal.TEN).status(true).build());
+                .id(UUID.randomUUID()).box(box).cliente(cliente).valor(BigDecimal.TEN).status(StatusAluguel.ATIVO).build());
 
         aluguelService.create(aluguel);
 
@@ -363,7 +358,7 @@ class AluguelServiceTest {
         // Mock para simular que o box e o cliente existem e que o box ja tem um aluguel ativo
         when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
         when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
-        when(aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNull(idBox)).thenReturn(true);
+        when(aluguelRepository.existsByBoxIdAndStatusNotAndDeletedAtIsNull(idBox, StatusAluguel.INATIVO)).thenReturn(true);
 
         // chama a funcao create e verifica se lanca a excecao esperada
         assertThrows(ConflitoException.class, () -> aluguelService.create(aluguel));
@@ -373,7 +368,7 @@ class AluguelServiceTest {
     }
 
     @Test
-    @DisplayName("Should always create the aluguel as active")
+    @DisplayName("Should always create the aluguel pending the contract signature")
     void createCase5() {
         // ids do box e do cliente utilizados na criacao
         UUID idBox = UUID.randomUUID();
@@ -392,11 +387,11 @@ class AluguelServiceTest {
         // chama a funcao create
         AluguelResponseDTO result = aluguelService.create(aluguel);
 
-        assertThat(result.getStatus()).isTrue();
+        assertThat(result.getStatus()).isEqualTo(StatusAluguel.PENDENTE_ASSINATURA_CONTRATO);
 
-        // verifica se checou os alugueis ativos do box e salvou o aluguel ativo
-        verify(aluguelRepository).existsByBoxIdAndStatusTrueAndDeletedAtIsNull(idBox);
-        verify(aluguelRepository).save(argThat(e -> Boolean.TRUE.equals(e.getStatus())));
+        // verifica se checou os alugueis em andamento do box e salvou o aluguel pendente de assinatura
+        verify(aluguelRepository).existsByBoxIdAndStatusNotAndDeletedAtIsNull(idBox, StatusAluguel.INATIVO);
+        verify(aluguelRepository).save(argThat(e -> e.getStatus() == StatusAluguel.PENDENTE_ASSINATURA_CONTRATO));
     }
 
     @Test
@@ -436,7 +431,7 @@ class AluguelServiceTest {
         // Mock para simular que o aluguel existe
         BoxEntity boxAntigo = boxBuilder().numero("100").build();
         ClienteEntity clienteAntigo = ClienteEntity.builder().nome("Cliente Old").build();
-        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).box(boxAntigo).cliente(clienteAntigo).valor(BigDecimal.valueOf(150.00)).status(true).createdAt(LocalDateTime.now()).build();
+        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).box(boxAntigo).cliente(clienteAntigo).valor(BigDecimal.valueOf(150.00)).status(StatusAluguel.ATIVO).createdAt(LocalDateTime.now()).build();
         when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
 
         // Mock para simular que o box e o cliente existem
@@ -446,7 +441,7 @@ class AluguelServiceTest {
         when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
 
         // Mock para simular resposta do save
-        AluguelEntity entidadeAtualizada = AluguelEntity.builder().id(id).box(box).cliente(cliente).valor(BigDecimal.valueOf(200.00)).status(true).build();
+        AluguelEntity entidadeAtualizada = AluguelEntity.builder().id(id).box(box).cliente(cliente).valor(BigDecimal.valueOf(200.00)).status(StatusAluguel.ATIVO).build();
         when(aluguelRepository.save(any(AluguelEntity.class))).thenReturn(entidadeAtualizada);
 
         // chama a funcao update
@@ -456,7 +451,7 @@ class AluguelServiceTest {
         assertThat(result.getBox()).isEqualTo(box);
         assertThat(result.getCliente()).isEqualTo(cliente);
         assertThat(result.getValor()).isEqualTo(BigDecimal.valueOf(200.00));
-        assertThat(result.getStatus()).isTrue();
+        assertThat(result.getStatus()).isEqualTo(StatusAluguel.ATIVO);
 
         // verifica se buscou o aluguel, o box e o cliente antes de atualizar
         verify(aluguelRepository).findByIdAndDeletedAtIsNull(id);
@@ -484,7 +479,7 @@ class AluguelServiceTest {
         AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(200.00)).build();
 
         when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).box(box).cliente(cliente)
-                .valor(BigDecimal.valueOf(150.00)).status(true).contrato(original).createdAt(LocalDateTime.now()).build()));
+                .valor(BigDecimal.valueOf(150.00)).status(StatusAluguel.ATIVO).contrato(original).createdAt(LocalDateTime.now()).build()));
         when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
         when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
         when(aluguelRepository.save(any(AluguelEntity.class))).thenAnswer(i -> i.getArgument(0));
@@ -508,7 +503,7 @@ class AluguelServiceTest {
         AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(new BigDecimal("150.00")).observacao("  ").build();
 
         when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).box(box).cliente(cliente)
-                .valor(new BigDecimal("150.0")).status(true).createdAt(LocalDateTime.now()).build()));
+                .valor(new BigDecimal("150.0")).status(StatusAluguel.ATIVO).createdAt(LocalDateTime.now()).build()));
         when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
         when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
         when(aluguelRepository.save(any(AluguelEntity.class))).thenAnswer(i -> i.getArgument(0));
@@ -530,13 +525,13 @@ class AluguelServiceTest {
         AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(200.00)).build();
 
         // Mock para simular que o aluguel, o box e o cliente existem
-        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).status(true).createdAt(LocalDateTime.now()).build();
+        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).status(StatusAluguel.ATIVO).createdAt(LocalDateTime.now()).build();
         when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
         when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(boxBuilder().id(idBox).build()));
         when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(ClienteEntity.builder().id(idCliente).build()));
 
         // Mock para simular que o box ja tem outro aluguel ativo
-        when(aluguelRepository.existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNot(idBox, id)).thenReturn(true);
+        when(aluguelRepository.existsByBoxIdAndStatusNotAndDeletedAtIsNullAndIdNot(idBox, StatusAluguel.INATIVO, id)).thenReturn(true);
 
         // chama a funcao update e verifica se lanca a excecao esperada
         assertThrows(ConflitoException.class, () -> aluguelService.update(aluguel, id));
@@ -557,11 +552,11 @@ class AluguelServiceTest {
 
         AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(new BigDecimal("1234.50")).build();
 
-        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).box(box).cliente(cliente).status(true).createdAt(LocalDateTime.now()).build()));
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).box(box).cliente(cliente).status(StatusAluguel.ATIVO).createdAt(LocalDateTime.now()).build()));
         when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
         when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
         when(aluguelRepository.save(any(AluguelEntity.class))).thenReturn(AluguelEntity.builder()
-                .id(id).box(box).cliente(cliente).valor(new BigDecimal("1234.50")).status(true).build());
+                .id(id).box(box).cliente(cliente).valor(new BigDecimal("1234.50")).status(StatusAluguel.ATIVO).build());
 
         aluguelService.update(aluguel, id);
 
@@ -586,11 +581,11 @@ class AluguelServiceTest {
 
         AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.TEN).build();
 
-        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).box(box).cliente(cliente).status(true).createdAt(LocalDateTime.now()).build()));
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).box(box).cliente(cliente).status(StatusAluguel.ATIVO).createdAt(LocalDateTime.now()).build()));
         when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
         when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
         when(aluguelRepository.save(any(AluguelEntity.class))).thenReturn(AluguelEntity.builder()
-                .id(id).box(box).cliente(cliente).valor(BigDecimal.TEN).status(true).build());
+                .id(id).box(box).cliente(cliente).valor(BigDecimal.TEN).status(StatusAluguel.ATIVO).build());
 
         aluguelService.update(aluguel, id);
 
@@ -598,7 +593,7 @@ class AluguelServiceTest {
     }
 
     @Test
-    @DisplayName("Should update an active aluguel when no other active one exists for the box")
+    @DisplayName("Should update an active aluguel, leaving it pending the aditivo, when no other active one exists for the box")
     void updateCase6() {
         // ids do aluguel, do box e do cliente utilizados na atualizacao
         UUID id = UUID.randomUUID();
@@ -609,7 +604,7 @@ class AluguelServiceTest {
         AluguelCreateDTO aluguel = AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(200.00)).build();
 
         // Mock para simular que o aluguel, o box e o cliente existem
-        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).status(true).createdAt(LocalDateTime.now()).build();
+        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).status(StatusAluguel.ATIVO).createdAt(LocalDateTime.now()).build();
         when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
         when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(boxBuilder().id(idBox).build()));
         when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(ClienteEntity.builder().id(idCliente).build()));
@@ -618,10 +613,10 @@ class AluguelServiceTest {
         // chama a funcao update
         AluguelResponseDTO result = aluguelService.update(aluguel, id);
 
-        assertThat(result.getStatus()).isTrue();
+        assertThat(result.getStatus()).isEqualTo(StatusAluguel.PENDENTE_ASSINATURA_ADITIVO);
 
         // verifica se procurou outro aluguel ativo desconsiderando o proprio aluguel
-        verify(aluguelRepository).existsByBoxIdAndStatusTrueAndDeletedAtIsNullAndIdNot(idBox, id);
+        verify(aluguelRepository).existsByBoxIdAndStatusNotAndDeletedAtIsNullAndIdNot(idBox, StatusAluguel.INATIVO, id);
     }
 
     @Test
@@ -637,7 +632,7 @@ class AluguelServiceTest {
 
         // Mock para simular que o aluguel esta ativo em outro box e que o novo box esta bloqueado
         BoxEntity boxAntigo = boxBuilder().id(UUID.randomUUID()).build();
-        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).box(boxAntigo).status(true).createdAt(LocalDateTime.now()).build();
+        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).box(boxAntigo).status(StatusAluguel.ATIVO).createdAt(LocalDateTime.now()).build();
         when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
         when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(boxBuilder().id(idBox).disponivel(false).build()));
         when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(ClienteEntity.builder().id(idCliente).build()));
@@ -662,7 +657,7 @@ class AluguelServiceTest {
 
         // Mock para simular que o aluguel ja foi encerrado
         BoxEntity boxBloqueado = boxBuilder().id(idBox).disponivel(false).build();
-        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).box(boxBloqueado).status(false).createdAt(LocalDateTime.now()).build();
+        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).box(boxBloqueado).status(StatusAluguel.INATIVO).createdAt(LocalDateTime.now()).build();
         when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
         when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(boxBloqueado));
         when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(ClienteEntity.builder().id(idCliente).build()));
@@ -687,7 +682,7 @@ class AluguelServiceTest {
 
         // Mock para simular que o aluguel ja esta ativo no box, que foi bloqueado depois
         BoxEntity boxBloqueado = boxBuilder().id(idBox).disponivel(false).build();
-        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).box(boxBloqueado).status(true).createdAt(LocalDateTime.now()).build();
+        AluguelEntity entidadeExistente = AluguelEntity.builder().id(id).box(boxBloqueado).status(StatusAluguel.ATIVO).createdAt(LocalDateTime.now()).build();
         when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
         when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(boxBloqueado));
         when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(ClienteEntity.builder().id(idCliente).build()));
@@ -821,39 +816,38 @@ class AluguelServiceTest {
     }
 
     @Test
-    @DisplayName("Should end the aluguel, request the distrato and the ended email")
+    @DisplayName("Should start the ending: pending the distrato signature and request the distrato")
     void encerrarCase1() {
         UUID id = UUID.randomUUID();
         BoxEntity box = BoxEntity.builder().id(UUID.randomUUID()).numero("101")
                 .unidade(UnidadeEntity.builder().id(UUID.randomUUID()).nome("Unidade Centro").cnpj("11111111111111").build()).build();
         ClienteEntity cliente = ClienteEntity.builder().id(UUID.randomUUID()).nome("Maria").email("maria@email.com").build();
-        AluguelEntity ativo = AluguelEntity.builder().id(id).box(box).cliente(cliente).valor(BigDecimal.TEN).status(true).createdAt(LocalDateTime.now()).build();
+        AluguelEntity ativo = AluguelEntity.builder().id(id).box(box).cliente(cliente).valor(BigDecimal.TEN).status(StatusAluguel.ATIVO).createdAt(LocalDateTime.now()).build();
 
         when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(ativo));
         when(aluguelRepository.save(any(AluguelEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         AluguelResponseDTO result = aluguelService.encerrar(id);
 
-        assertThat(result.getStatus()).isFalse();
-        verify(aluguelRepository).save(argThat(e -> e.getId().equals(id) && Boolean.FALSE.equals(e.getStatus())));
+        assertThat(result.getStatus()).isEqualTo(StatusAluguel.PENDENTE_ASSINATURA_DISTRATO);
+        verify(aluguelRepository).save(argThat(e -> e.getId().equals(id) && e.getStatus() == StatusAluguel.PENDENTE_ASSINATURA_DISTRATO));
 
         // gera um distrato e nao um aditivo
         verify(eventPublisher).publishEvent(argThat((Object e) -> e instanceof ContratoSolicitadoMessage m
                 && m.tipo() == ContratoSolicitadoMessage.Tipo.DISTRATO && m.idAluguel().equals(id)));
         verify(eventPublisher, never()).publishEvent(argThat((Object e) -> e instanceof ContratoSolicitadoMessage m && m.tipo() == ContratoSolicitadoMessage.Tipo.ADITIVO));
-        verify(eventPublisher).publishEvent(argThat((Object e) -> e instanceof EmailSolicitadoMessage m
-                && m.template() == EmailSolicitadoMessage.Template.ALUGUEL_ENCERRADO
-                && m.variaveis().get("situacao").equals("Inativo")));
+        // o email de encerramento so sai quando o distrato assinado for enviado
+        verify(eventPublisher, never()).publishEvent(argThat((Object e) -> e instanceof EmailSolicitadoMessage));
     }
 
     @Test
-    @DisplayName("Should not request the ended email when the cliente has no email")
+    @DisplayName("Should not request any email when starting the ending of an aluguel")
     void encerrarCase2() {
         UUID id = UUID.randomUUID();
         BoxEntity box = boxBuilder().id(UUID.randomUUID()).numero("101").build();
         ClienteEntity cliente = ClienteEntity.builder().id(UUID.randomUUID()).nome("Maria").email(null).build();
 
-        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).box(box).cliente(cliente).status(true).build()));
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).box(box).cliente(cliente).status(StatusAluguel.ATIVO).build()));
         when(aluguelRepository.save(any(AluguelEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         aluguelService.encerrar(id);
@@ -863,10 +857,39 @@ class AluguelServiceTest {
     }
 
     @Test
+    @DisplayName("Should throw exception when ending an aluguel that is still pending the contract signature")
+    void encerrarPendente() {
+        UUID id = UUID.randomUUID();
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).status(StatusAluguel.PENDENTE_ASSINATURA_CONTRATO).build()));
+
+        assertThrows(ConflitoException.class, () -> aluguelService.encerrar(id));
+
+        verify(aluguelRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw exception when updating an aluguel that is not active")
+    void updateNaoAtivo() {
+        UUID id = UUID.randomUUID();
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+        BoxEntity box = boxBuilder().id(idBox).numero("101").build();
+        ClienteEntity cliente = ClienteEntity.builder().id(idCliente).nome("Cliente").build();
+
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).box(box).cliente(cliente).status(StatusAluguel.PENDENTE_ASSINATURA_CONTRATO).build()));
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
+
+        assertThrows(ConflitoException.class, () -> aluguelService.update(AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.TEN).build(), id));
+
+        verify(aluguelRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("Should throw exception when ending an aluguel that was already ended")
     void encerrarCase3() {
         UUID id = UUID.randomUUID();
-        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).status(false).build()));
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).status(StatusAluguel.INATIVO).build()));
 
         assertThrows(ConflitoException.class, () -> aluguelService.encerrar(id));
 
@@ -886,7 +909,7 @@ class AluguelServiceTest {
     }
 
     @Test
-    @DisplayName("Should keep the status of the aluguel when updating it")
+    @DisplayName("Should leave the aluguel pending the aditivo signature when updating it")
     void updateStatusMantido() {
         UUID id = UUID.randomUUID();
         UUID idBox = UUID.randomUUID();
@@ -894,7 +917,7 @@ class AluguelServiceTest {
         BoxEntity box = boxBuilder().id(idBox).numero("101").build();
         ClienteEntity cliente = ClienteEntity.builder().id(idCliente).nome("Cliente").build();
 
-        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).box(box).cliente(cliente).valor(BigDecimal.TEN).status(true).createdAt(LocalDateTime.now()).build()));
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).box(box).cliente(cliente).valor(BigDecimal.TEN).status(StatusAluguel.ATIVO).createdAt(LocalDateTime.now()).build()));
         when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
         when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(cliente));
         when(aluguelRepository.save(any(AluguelEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -902,8 +925,106 @@ class AluguelServiceTest {
         aluguelService.update(AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.valueOf(20)).build(), id);
 
         // a situacao nao e alterada pela edicao e nao entra na lista de alteracoes do aditivo
-        verify(aluguelRepository).save(argThat(e -> Boolean.TRUE.equals(e.getStatus())));
+        verify(aluguelRepository).save(argThat(e -> e.getStatus() == StatusAluguel.PENDENTE_ASSINATURA_ADITIVO));
         verify(eventPublisher).publishEvent(argThat((Object e) -> e instanceof ContratoSolicitadoMessage m
                 && m.tipo() == ContratoSolicitadoMessage.Tipo.ADITIVO && m.alteracoes().stream().noneMatch(a -> a.campo().equals("Situação"))));
+    }
+
+    @Test
+    @DisplayName("Should make the aluguel inactive when cancelling the pending contract signature")
+    void cancelarPendenciaContrato() {
+        UUID id = UUID.randomUUID();
+        AluguelEntity aluguel = AluguelEntity.builder().id(id).status(StatusAluguel.PENDENTE_ASSINATURA_CONTRATO).build();
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(aluguel));
+        when(aluguelRepository.save(any(AluguelEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AluguelResponseDTO result = aluguelService.cancelarPendencia(id);
+
+        assertThat(result.getStatus()).isEqualTo(StatusAluguel.INATIVO);
+    }
+
+    @Test
+    @DisplayName("Should keep the aluguel active and discard the distrato when cancelling the pending distrato signature")
+    void cancelarPendenciaDistrato() {
+        UUID id = UUID.randomUUID();
+        AluguelEntity aluguel = AluguelEntity.builder().id(id).status(StatusAluguel.PENDENTE_ASSINATURA_DISTRATO)
+                .distrato(com.nowbox.nowbox_api.modules.contrato.entity.ArquivoEntity.builder().id(UUID.randomUUID()).build()).build();
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(aluguel));
+        when(aluguelRepository.save(any(AluguelEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AluguelResponseDTO result = aluguelService.cancelarPendencia(id);
+
+        assertThat(result.getStatus()).isEqualTo(StatusAluguel.ATIVO);
+        assertThat(result.isDistratoGerado()).isFalse();
+        assertThat(aluguel.getDistrato()).isNull();
+    }
+
+    @Test
+    @DisplayName("Should restore the original values when cancelling the pending aditivo signature")
+    void cancelarPendenciaAditivo() {
+        UUID id = UUID.randomUUID();
+        BoxEntity boxOriginal = boxBuilder().id(UUID.randomUUID()).numero("101").build();
+        BoxEntity boxNovo = boxBuilder().id(UUID.randomUUID()).numero("202").build();
+        ClienteEntity cliente = ClienteEntity.builder().id(UUID.randomUUID()).nome("Cliente").build();
+        com.nowbox.nowbox_api.modules.contrato.entity.ArquivoAluguelEntity aditivo = com.nowbox.nowbox_api.modules.contrato.entity.ArquivoAluguelEntity.builder().pendenteAssinatura(true).build();
+        AluguelEntity aluguel = AluguelEntity.builder().id(id).status(StatusAluguel.PENDENTE_ASSINATURA_ADITIVO)
+                .box(boxNovo).cliente(cliente).valor(BigDecimal.valueOf(200)).observacao("nova")
+                .boxAnterior(boxOriginal).clienteAnterior(cliente).valorAnterior(BigDecimal.valueOf(100)).observacaoAnterior("antiga").build();
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(aluguel));
+        when(arquivoAluguelRepository.findFirstByAluguelIdAndPendenteAssinaturaTrueOrderBySalvoEmDesc(id)).thenReturn(Optional.of(aditivo));
+        when(aluguelRepository.save(any(AluguelEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AluguelResponseDTO result = aluguelService.cancelarPendencia(id);
+
+        assertThat(result.getStatus()).isEqualTo(StatusAluguel.ATIVO);
+        assertThat(aluguel.getBox()).isEqualTo(boxOriginal);
+        assertThat(aluguel.getValor()).isEqualTo(BigDecimal.valueOf(100));
+        assertThat(aluguel.getObservacao()).isEqualTo("antiga");
+        assertThat(aluguel.getBoxAnterior()).isNull();
+        assertThat(aditivo.isCancelado()).isTrue();
+        assertThat(aditivo.isPendenteAssinatura()).isFalse();
+        verify(arquivoAluguelRepository).save(aditivo);
+    }
+
+    @Test
+    @DisplayName("Should not rent a box that is reserved by an aluguel pending the aditivo signature that moves out of it")
+    void createBoxReservadoPorAditivo() {
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(boxBuilder().id(idBox).build()));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(ClienteEntity.builder().id(idCliente).build()));
+        when(aluguelRepository.existsByBoxAnteriorIdAndStatusAndDeletedAtIsNull(idBox, StatusAluguel.PENDENTE_ASSINATURA_ADITIVO)).thenReturn(true);
+
+        assertThrows(ConflitoException.class, () -> aluguelService.create(AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.TEN).build()));
+
+        verify(aluguelRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should not move another aluguel to a box that is reserved by a pending aditivo")
+    void updateBoxReservadoPorAditivo() {
+        UUID id = UUID.randomUUID();
+        UUID idBox = UUID.randomUUID();
+        UUID idCliente = UUID.randomUUID();
+        BoxEntity box = boxBuilder().id(idBox).build();
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).status(StatusAluguel.ATIVO).build()));
+        when(boxRepository.findByIdAndDeletedAtIsNull(idBox)).thenReturn(Optional.of(box));
+        when(clienteRepository.findByIdAndDeletedAtIsNull(idCliente)).thenReturn(Optional.of(ClienteEntity.builder().id(idCliente).build()));
+        when(aluguelRepository.existsByBoxAnteriorIdAndStatusAndDeletedAtIsNullAndIdNot(idBox, StatusAluguel.PENDENTE_ASSINATURA_ADITIVO, id)).thenReturn(true);
+
+        assertThrows(ConflitoException.class, () -> aluguelService.update(AluguelCreateDTO.builder().idBox(idBox).idCliente(idCliente).valor(BigDecimal.TEN).build(), id));
+
+        verify(aluguelRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw exception when cancelling an aluguel that is not pending a signature")
+    void cancelarPendenciaSemPendencia() {
+        UUID id = UUID.randomUUID();
+        when(aluguelRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(AluguelEntity.builder().id(id).status(StatusAluguel.ATIVO).build()));
+
+        assertThrows(ConflitoException.class, () -> aluguelService.cancelarPendencia(id));
+
+        verify(aluguelRepository, never()).save(any());
     }
 }

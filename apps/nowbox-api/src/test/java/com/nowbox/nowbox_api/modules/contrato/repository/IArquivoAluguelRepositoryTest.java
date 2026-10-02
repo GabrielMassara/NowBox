@@ -2,6 +2,7 @@ package com.nowbox.nowbox_api.modules.contrato.repository;
 
 import com.nowbox.nowbox_api.modules.cliente.ClienteTestFixtures;
 import com.nowbox.nowbox_api.modules.aluguel.entity.AluguelEntity;
+import com.nowbox.nowbox_api.modules.aluguel.entity.StatusAluguel;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
 import com.nowbox.nowbox_api.modules.contrato.entity.ArquivoAluguelEntity;
@@ -60,7 +61,7 @@ class IArquivoAluguelRepositoryTest {
     }
 
     private AluguelEntity aluguel(BoxEntity box, ClienteEntity cliente) {
-        AluguelEntity aluguel = AluguelEntity.builder().box(box).cliente(cliente).valor(BigDecimal.valueOf(150.00)).status(true).build();
+        AluguelEntity aluguel = AluguelEntity.builder().box(box).cliente(cliente).valor(BigDecimal.valueOf(150.00)).status(StatusAluguel.ATIVO).build();
         em.persist(aluguel);
         return aluguel;
     }

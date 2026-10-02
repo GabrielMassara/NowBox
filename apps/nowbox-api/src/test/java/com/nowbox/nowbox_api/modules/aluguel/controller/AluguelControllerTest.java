@@ -6,6 +6,7 @@ import com.nowbox.nowbox_api.common.exception.ConflitoException;
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
 import com.nowbox.nowbox_api.modules.aluguel.dto.AluguelCreateDTO;
 import com.nowbox.nowbox_api.modules.aluguel.dto.AluguelResponseDTO;
+import com.nowbox.nowbox_api.modules.aluguel.entity.StatusAluguel;
 import com.nowbox.nowbox_api.modules.aluguel.service.AluguelService;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
@@ -263,7 +264,7 @@ class AluguelControllerTest {
     @DisplayName("Should end aluguel with status 200")
     void encerrarCase1() throws Exception {
         UUID id = UUID.randomUUID();
-        when(aluguelService.encerrar(id)).thenReturn(AluguelResponseDTO.builder().id(id).status(false).build());
+        when(aluguelService.encerrar(id)).thenReturn(AluguelResponseDTO.builder().id(id).status(StatusAluguel.INATIVO).build());
 
         // chama o endpoint PATCH /v1/aluguel/{id}/encerrar
         mockMvc.perform(patch("/v1/aluguel/{id}/encerrar", id))

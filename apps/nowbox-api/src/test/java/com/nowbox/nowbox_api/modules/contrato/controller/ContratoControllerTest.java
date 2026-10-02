@@ -1,5 +1,6 @@
 package com.nowbox.nowbox_api.modules.contrato.controller;
 
+import com.nowbox.nowbox_api.common.exception.ConflitoException;
 import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
 import com.nowbox.nowbox_api.modules.contrato.dto.ContratoDownloadDTO;
 import com.nowbox.nowbox_api.modules.contrato.dto.AditivoResponseDTO;
@@ -11,6 +12,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.HttpHeaders;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -21,9 +23,11 @@ import java.util.UUID;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ContratoController.class)
@@ -108,5 +112,40 @@ class ContratoControllerTest {
         mockMvc.perform(get("/v1/contrato/aluguel/{id}/distrato/download", idAluguel))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, containsString("distrato.pdf")));
+    }
+
+    @Test
+    @DisplayName("Should receive the signed contract with status 204")
+    void enviarContratoAssinado() throws Exception {
+        UUID idAluguel = UUID.randomUUID();
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "assinado.pdf", "application/pdf", "%PDF-1.7".getBytes());
+
+        mockMvc.perform(multipart("/v1/contrato/aluguel/{id}/contrato-assinado", idAluguel).file(arquivo))
+                .andExpect(status().isNoContent());
+
+        verify(contratoService).enviarContratoAssinado(eq(idAluguel), any());
+    }
+
+    @Test
+    @DisplayName("Should return status 409 when the aluguel is not pending the contract signature")
+    void enviarContratoAssinadoConflito() throws Exception {
+        UUID idAluguel = UUID.randomUUID();
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "assinado.pdf", "application/pdf", "%PDF-1.7".getBytes());
+        doThrow(new ConflitoException("O aluguel não está aguardando a assinatura do contrato")).when(contratoService).enviarContratoAssinado(eq(idAluguel), any());
+
+        mockMvc.perform(multipart("/v1/contrato/aluguel/{id}/contrato-assinado", idAluguel).file(arquivo))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("Should receive the signed distrato with status 204")
+    void enviarDistratoAssinado() throws Exception {
+        UUID idAluguel = UUID.randomUUID();
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "distrato.pdf", "application/pdf", "%PDF-1.7".getBytes());
+
+        mockMvc.perform(multipart("/v1/contrato/aluguel/{id}/distrato-assinado", idAluguel).file(arquivo))
+                .andExpect(status().isNoContent());
+
+        verify(contratoService).enviarDistratoAssinado(eq(idAluguel), any());
     }
 }
