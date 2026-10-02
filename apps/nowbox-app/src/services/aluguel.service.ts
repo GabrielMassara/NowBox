@@ -34,6 +34,11 @@ export const aluguelService = {
     return http.put<AluguelResponseDTO>(`/v1/aluguel/${id}`, dados)
   },
 
+  // Encerra o contrato e gera o distrato. Um aluguel encerrado nao volta a ficar ativo.
+  encerrar(id: string) {
+    return http.patch<AluguelResponseDTO>(`/v1/aluguel/${id}/encerrar`)
+  },
+
   excluir(id: string) {
     return http.delete<void>(`/v1/aluguel/${id}`)
   },

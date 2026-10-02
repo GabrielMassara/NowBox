@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../../components/AppIcon.vue'
 import SkeletonTable from '../../components/skeleton/SkeletonTable.vue'
+import ConfirmacaoModal from '../../components/ConfirmacaoModal.vue'
 import ContratosModal from '../../components/ContratosModal.vue'
 import { ApiError } from '../../lib/http'
 import { carregarTodas } from '../../lib/paginacao'
@@ -24,6 +25,10 @@ const carregando = ref(true)
 const erro = ref('')
 const excluindoId = ref('')
 const baixandoContratoId = ref('')
+const baixandoDistratoId = ref('')
+const encerrandoId = ref('')
+const aluguelParaEncerrar = ref<AluguelResponseDTO | null>(null)
+const erroEncerrar = ref('')
 const aluguelDosContratos = ref<AluguelResponseDTO | null>(null)
 
 const pagina = ref(0)
@@ -109,6 +114,47 @@ async function baixarContrato(aluguel: AluguelResponseDTO) {
     erro.value = e instanceof ApiError ? e.message : 'Não foi possível baixar o contrato.'
   } finally {
     baixandoContratoId.value = ''
+  }
+}
+
+async function baixarDistrato(aluguel: AluguelResponseDTO) {
+  baixandoDistratoId.value = aluguel.id
+  erro.value = ''
+
+  try {
+    await contratoService.baixarDistrato(aluguel.id)
+  } catch (e) {
+    erro.value = e instanceof ApiError ? e.message : 'Não foi possível baixar o distrato.'
+  } finally {
+    baixandoDistratoId.value = ''
+  }
+}
+
+function pedirEncerramento(aluguel: AluguelResponseDTO) {
+  erroEncerrar.value = ''
+  aluguelParaEncerrar.value = aluguel
+}
+
+function cancelarEncerramento() {
+  aluguelParaEncerrar.value = null
+  erroEncerrar.value = ''
+}
+
+async function encerrarAluguel() {
+  const aluguel = aluguelParaEncerrar.value
+  if (!aluguel) return
+
+  encerrandoId.value = aluguel.id
+  erroEncerrar.value = ''
+
+  try {
+    await aluguelService.encerrar(aluguel.id)
+    aluguelParaEncerrar.value = null
+    await carregar()
+  } catch (e) {
+    erroEncerrar.value = e instanceof ApiError ? e.message : 'Não foi possível encerrar o contrato.'
+  } finally {
+    encerrandoId.value = ''
   }
 }
 
@@ -257,6 +303,22 @@ onMounted(iniciar)
                   <AppIcon name="file-text" :size="16" />
                 </button>
                 <button
+                  v-if="!aluguel.status"
+                  type="button"
+                  class="alugueis__acao-btn"
+                  aria-label="Baixar distrato"
+                  title="Baixar distrato"
+                  :disabled="baixandoDistratoId === aluguel.id"
+                  @click="baixarDistrato(aluguel)"
+                >
+                  <AppIcon
+                    :name="baixandoDistratoId === aluguel.id ? 'loader' : 'clipboard-check'"
+                    :size="16"
+                    :class="{ 'alugueis__spinner': baixandoDistratoId === aluguel.id }"
+                  />
+                </button>
+                <button
+                  v-if="aluguel.status"
                   type="button"
                   class="alugueis__acao-btn"
                   aria-label="Editar aluguel"
@@ -264,6 +326,16 @@ onMounted(iniciar)
                   @click="editarAluguel(aluguel)"
                 >
                   <AppIcon name="pencil" :size="16" />
+                </button>
+                <button
+                  v-if="aluguel.status"
+                  type="button"
+                  class="alugueis__acao-btn alugueis__acao-btn--perigo"
+                  aria-label="Encerrar contrato"
+                  title="Encerrar contrato"
+                  @click="pedirEncerramento(aluguel)"
+                >
+                  <AppIcon name="lock" :size="16" />
                 </button>
                 <button
                   type="button"
@@ -313,6 +385,22 @@ onMounted(iniciar)
         </div>
       </div>
     </div>
+
+    <ConfirmacaoModal
+      v-if="aluguelParaEncerrar"
+      titulo="Encerrar contrato"
+      :mensagem="`Você está encerrando o contrato do aluguel do box ${aluguelParaEncerrar.box?.numero} de ${aluguelParaEncerrar.cliente?.nome}.`"
+      :avisos="[
+        'Um distrato será gerado e enviado ao cliente por e-mail, se ele tiver e-mail cadastrado.',
+        'O aluguel ficará inativo e não poderá mais ser editado.',
+        'Esta ação não pode ser desfeita: um contrato encerrado não pode ser reativado.',
+      ]"
+      texto-confirmar="Encerrar contrato"
+      :processando="encerrandoId === aluguelParaEncerrar.id"
+      :erro="erroEncerrar"
+      @confirmar="encerrarAluguel"
+      @cancelar="cancelarEncerramento"
+    />
 
     <ContratosModal
       v-if="aluguelDosContratos"

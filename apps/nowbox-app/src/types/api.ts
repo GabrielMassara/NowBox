@@ -190,7 +190,6 @@ export interface AluguelCreateDTO {
   idCliente: string
   valor: number
   observacao?: string
-  status: boolean
 }
 
 export interface AditivoResponseDTO {
