@@ -1,11 +1,11 @@
 import { http } from '../lib/http'
-import type { AluguelCreateDTO, AluguelResponseDTO, PageResponse } from '../types/api'
+import type { AluguelCreateDTO, AluguelResponseDTO, AluguelStatus, PageResponse } from '../types/api'
 
 export interface AluguelFiltro {
   // A API só lista aluguéis de um box por vez, pois valida o acesso à unidade a partir dele.
   idBox: string
   idCliente?: string
-  status?: boolean
+  status?: AluguelStatus
 }
 
 export const aluguelService = {
@@ -17,7 +17,7 @@ export const aluguelService = {
       idBox: filtro.idBox,
     })
     if (filtro.idCliente) params.set('idCliente', filtro.idCliente)
-    if (filtro.status !== undefined) params.set('status', String(filtro.status))
+    if (filtro.status !== undefined) params.set('status', filtro.status)
 
     return http.get<PageResponse<AluguelResponseDTO>>(`/v1/aluguel?${params}`)
   },
@@ -34,9 +34,12 @@ export const aluguelService = {
     return http.put<AluguelResponseDTO>(`/v1/aluguel/${id}`, dados)
   },
 
-  // Encerra o contrato e gera o distrato. Um aluguel encerrado nao volta a ficar ativo.
   encerrar(id: string) {
     return http.patch<AluguelResponseDTO>(`/v1/aluguel/${id}/encerrar`)
+  },
+
+  cancelarPendencia(id: string) {
+    return http.patch<AluguelResponseDTO>(`/v1/aluguel/${id}/cancelar-pendencia`)
   },
 
   excluir(id: string) {

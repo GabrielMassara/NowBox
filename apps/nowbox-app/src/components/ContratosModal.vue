@@ -56,12 +56,13 @@ function irParaPagina(novaPagina: number) {
   carregar()
 }
 
-async function baixar(contrato: AditivoResponseDTO) {
+async function baixar(contrato: AditivoResponseDTO, assinado = false) {
   baixandoId.value = contrato.id
   erro.value = ''
 
   try {
-    await contratoService.baixarAditivo(contrato.id, contrato.nomeArquivo)
+    if (assinado) await contratoService.baixarAditivoAssinado(contrato.id)
+    else await contratoService.baixarAditivo(contrato.id, contrato.nomeArquivo)
   } catch (e) {
     erro.value = e instanceof ApiError ? e.message : 'Não foi possível baixar o aditivo.'
   } finally {
@@ -117,7 +118,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', aoPressionarTecla))
               <th>Gerado em</th>
               <th>Alterações</th>
               <th>Arquivo</th>
-              <th>Tamanho</th>
+              <th>Situação</th>
               <th class="contratos__col-acoes">Baixar</th>
             </tr>
           </thead>
@@ -128,13 +129,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', aoPressionarTecla))
               </td>
               <td data-label="Alterações" class="contratos__descricao">{{ contrato.descricao || '-' }}</td>
               <td data-label="Arquivo" class="contratos__arquivo">{{ contrato.nomeArquivo }}</td>
-              <td data-label="Tamanho">{{ formatarTamanho(contrato.tamanho) }}</td>
+              <td data-label="Situação">
+                {{ contrato.assinado ? 'Assinado' : contrato.cancelado ? 'Cancelado' : contrato.pendenteAssinatura ? 'Pendente de assinatura' : '-' }}
+                <span class="contratos__tamanho">({{ formatarTamanho(contrato.tamanho) }})</span>
+              </td>
               <td class="contratos__col-acoes">
+                <div class="contratos__acoes">
                 <button
                   type="button"
                   class="contratos__acao-btn"
                   aria-label="Baixar aditivo"
-                  title="Baixar"
+                  title="Baixar modelo em branco"
                   :disabled="baixandoId === contrato.id"
                   @click="baixar(contrato)"
                 >
@@ -144,6 +149,18 @@ onBeforeUnmount(() => window.removeEventListener('keydown', aoPressionarTecla))
                     :class="{ 'contratos__spinner': baixandoId === contrato.id }"
                   />
                 </button>
+                <button
+                  v-if="contrato.assinado"
+                  type="button"
+                  class="contratos__acao-btn"
+                  aria-label="Baixar aditivo assinado"
+                  title="Baixar aditivo assinado"
+                  :disabled="baixandoId === contrato.id"
+                  @click="baixar(contrato, true)"
+                >
+                  <AppIcon name="clipboard-check" :size="16" />
+                </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -292,6 +309,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', aoPressionarTecla))
 
 .contratos__descricao {
   white-space: pre-line;
+}
+
+.contratos__acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.contratos__tamanho {
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .contratos__arquivo {

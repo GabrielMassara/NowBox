@@ -5,6 +5,7 @@ import AppIcon from '../../components/AppIcon.vue'
 import SkeletonTable from '../../components/skeleton/SkeletonTable.vue'
 import ConfirmacaoModal from '../../components/ConfirmacaoModal.vue'
 import ContratosModal from '../../components/ContratosModal.vue'
+import EscolhaContratoModal from '../../components/EscolhaContratoModal.vue'
 import { ApiError } from '../../lib/http'
 import { carregarTodas } from '../../lib/paginacao'
 import { aluguelService } from '../../services/aluguel.service'
@@ -12,7 +13,7 @@ import { boxService } from '../../services/box.service'
 import { clienteService } from '../../services/cliente.service'
 import { contratoService } from '../../services/contrato.service'
 import { unidadeStore } from '../../stores/unidade'
-import type { AluguelResponseDTO, BoxResponseDTO, ClienteResponseDTO } from '../../types/api'
+import type { AluguelResponseDTO, AluguelStatus, BoxResponseDTO, ClienteResponseDTO } from '../../types/api'
 
 const TAMANHO_PAGINA = 10
 
@@ -25,6 +26,16 @@ const carregando = ref(true)
 const erro = ref('')
 const excluindoId = ref('')
 const baixandoContratoId = ref('')
+const aluguelParaCancelar = ref<AluguelResponseDTO | null>(null)
+const cancelandoId = ref('')
+const erroCancelar = ref('')
+const aluguelDoDownload = ref<AluguelResponseDTO | null>(null)
+const documentoDoDownload = ref<'contrato' | 'distrato'>('contrato')
+
+function escolherDownload(aluguel: AluguelResponseDTO, documento: 'contrato' | 'distrato') {
+  documentoDoDownload.value = documento
+  aluguelDoDownload.value = aluguel
+}
 const baixandoDistratoId = ref('')
 const encerrandoId = ref('')
 const aluguelParaEncerrar = ref<AluguelResponseDTO | null>(null)
@@ -35,7 +46,53 @@ const pagina = ref(0)
 const totalPaginas = ref(0)
 const totalElementos = ref(0)
 
-const filtro = reactive({ idBox: '', idCliente: '', status: '' })
+const filtro = reactive<{ idBox: string; idCliente: string; status: AluguelStatus | '' }>({ idBox: '', idCliente: '', status: '' })
+
+const STATUS: Record<AluguelStatus, { rotulo: string; classe: string }> = {
+  PENDENTE_ASSINATURA_CONTRATO: { rotulo: 'Contrato pendente de assinatura', classe: 'badge--warning' },
+  ATIVO: { rotulo: 'Ativo', classe: 'badge--good' },
+  PENDENTE_ASSINATURA_ADITIVO: { rotulo: 'Aditivo pendente de assinatura', classe: 'badge--warning' },
+  PENDENTE_ASSINATURA_DISTRATO: { rotulo: 'Distrato pendente de assinatura', classe: 'badge--warning' },
+  INATIVO: { rotulo: 'Inativo', classe: 'badge--critical' },
+}
+
+function pendenteDeAssinatura(aluguel: AluguelResponseDTO) {
+  return aluguel.status.startsWith('PENDENTE_ASSINATURA')
+}
+
+const DESCRICAO_CANCELAMENTO: Record<string, string[]> = {
+  PENDENTE_ASSINATURA_CONTRATO: ['O contrato não será assinado e o aluguel ficará inativo.', 'O box será liberado para um novo aluguel.'],
+  PENDENTE_ASSINATURA_ADITIVO: ['As alterações feitas no aluguel serão desfeitas e os dados originais voltam.', 'O aluguel continua ativo com o contrato original.'],
+  PENDENTE_ASSINATURA_DISTRATO: ['O encerramento será desfeito e o aluguel continua ativo.'],
+}
+
+function pedirCancelamento(aluguel: AluguelResponseDTO) {
+  erroCancelar.value = ''
+  aluguelParaCancelar.value = aluguel
+}
+
+async function cancelarPendencia() {
+  const aluguel = aluguelParaCancelar.value
+  if (!aluguel) return
+
+  cancelandoId.value = aluguel.id
+  erroCancelar.value = ''
+
+  try {
+    await aluguelService.cancelarPendencia(aluguel.id)
+    aluguelParaCancelar.value = null
+    await carregar()
+  } catch (e) {
+    erroCancelar.value = e instanceof ApiError ? e.message : 'Não foi possível cancelar a pendência.'
+  } finally {
+    cancelandoId.value = ''
+  }
+}
+
+function continuarAssinatura(aluguel: AluguelResponseDTO) {
+  const etapa = aluguel.status.replace('PENDENTE_ASSINATURA_', '').toLowerCase()
+  router.push(`/alugueis/${aluguel.id}/assinatura-${etapa}`)
+}
 
 const moeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -67,7 +124,7 @@ async function carregar() {
     const resultado = await aluguelService.listar(pagina.value, TAMANHO_PAGINA, {
       idBox: filtro.idBox,
       idCliente: filtro.idCliente || undefined,
-      status: filtro.status === '' ? undefined : filtro.status === 'true',
+      status: filtro.status || undefined,
     })
     alugueis.value = resultado.content
     totalPaginas.value = resultado.totalPages
@@ -104,12 +161,14 @@ function editarAluguel(aluguel: AluguelResponseDTO) {
   router.push(`/alugueis/${aluguel.id}/editar`)
 }
 
-async function baixarContrato(aluguel: AluguelResponseDTO) {
+async function baixarContrato(aluguel: AluguelResponseDTO, versao: 'modelo' | 'assinado') {
+  aluguelDoDownload.value = null
   baixandoContratoId.value = aluguel.id
   erro.value = ''
 
   try {
-    await contratoService.baixarContrato(aluguel.id)
+    if (versao === 'assinado') await contratoService.baixarContratoAssinado(aluguel.id)
+    else await contratoService.baixarContrato(aluguel.id)
   } catch (e) {
     erro.value = e instanceof ApiError ? e.message : 'Não foi possível baixar o contrato.'
   } finally {
@@ -117,12 +176,14 @@ async function baixarContrato(aluguel: AluguelResponseDTO) {
   }
 }
 
-async function baixarDistrato(aluguel: AluguelResponseDTO) {
+async function baixarDistrato(aluguel: AluguelResponseDTO, versao: 'modelo' | 'assinado') {
+  aluguelDoDownload.value = null
   baixandoDistratoId.value = aluguel.id
   erro.value = ''
 
   try {
-    await contratoService.baixarDistrato(aluguel.id)
+    if (versao === 'assinado') await contratoService.baixarDistratoAssinado(aluguel.id)
+    else await contratoService.baixarDistrato(aluguel.id)
   } catch (e) {
     erro.value = e instanceof ApiError ? e.message : 'Não foi possível baixar o distrato.'
   } finally {
@@ -150,7 +211,7 @@ async function encerrarAluguel() {
   try {
     await aluguelService.encerrar(aluguel.id)
     aluguelParaEncerrar.value = null
-    await carregar()
+    router.push(`/alugueis/${aluguel.id}/assinatura-distrato`)
   } catch (e) {
     erroEncerrar.value = e instanceof ApiError ? e.message : 'Não foi possível encerrar o contrato.'
   } finally {
@@ -219,8 +280,7 @@ onMounted(iniciar)
             <AppIcon name="check-circle" :size="16" />
             <select v-model="filtro.status" aria-label="Filtrar por situação">
               <option value="">Todas as situações</option>
-              <option value="true">Ativos</option>
-              <option value="false">Inativos</option>
+              <option v-for="(info, valor) in STATUS" :key="valor" :value="valor">{{ info.rotulo }}</option>
             </select>
           </div>
 
@@ -271,21 +331,42 @@ onMounted(iniciar)
             <td data-label="Cliente">{{ aluguel.cliente?.nome }}</td>
             <td data-label="Valor">{{ moeda.format(aluguel.valor) }}</td>
             <td data-label="Situação">
-              <span class="badge" :class="aluguel.status ? 'badge--good' : 'badge--warning'">
+              <span class="badge" :class="STATUS[aluguel.status].classe">
                 <span class="badge__dot" />
-                {{ aluguel.status ? 'Ativo' : 'Inativo' }}
+                {{ STATUS[aluguel.status].rotulo }}
               </span>
             </td>
             <td data-label="Cadastrado em">{{ formatarData(aluguel.createdAt) }}</td>
             <td class="alugueis__col-acoes">
               <div class="alugueis__acoes">
                 <button
+                  v-if="pendenteDeAssinatura(aluguel)"
+                  type="button"
+                  class="alugueis__acao-btn"
+                  aria-label="Continuar assinatura"
+                  title="Continuar assinatura"
+                  @click="continuarAssinatura(aluguel)"
+                >
+                  <AppIcon name="clipboard-check" :size="16" />
+                </button>
+                <button
+                  v-if="pendenteDeAssinatura(aluguel)"
+                  type="button"
+                  class="alugueis__acao-btn alugueis__acao-btn--perigo"
+                  aria-label="Cancelar pendência de assinatura"
+                  title="Cancelar pendência de assinatura"
+                  @click="pedirCancelamento(aluguel)"
+                >
+                  <AppIcon name="close" :size="16" />
+                </button>
+                <button
+                  v-if="aluguel.contratoGerado"
                   type="button"
                   class="alugueis__acao-btn"
                   aria-label="Baixar contrato"
                   title="Baixar contrato"
                   :disabled="baixandoContratoId === aluguel.id"
-                  @click="baixarContrato(aluguel)"
+                  @click="escolherDownload(aluguel, 'contrato')"
                 >
                   <AppIcon
                     :name="baixandoContratoId === aluguel.id ? 'loader' : 'download'"
@@ -303,13 +384,13 @@ onMounted(iniciar)
                   <AppIcon name="file-text" :size="16" />
                 </button>
                 <button
-                  v-if="!aluguel.status"
+                  v-if="aluguel.distratoGerado"
                   type="button"
                   class="alugueis__acao-btn"
                   aria-label="Baixar distrato"
                   title="Baixar distrato"
                   :disabled="baixandoDistratoId === aluguel.id"
-                  @click="baixarDistrato(aluguel)"
+                  @click="escolherDownload(aluguel, 'distrato')"
                 >
                   <AppIcon
                     :name="baixandoDistratoId === aluguel.id ? 'loader' : 'clipboard-check'"
@@ -318,7 +399,7 @@ onMounted(iniciar)
                   />
                 </button>
                 <button
-                  v-if="aluguel.status"
+                  v-if="aluguel.status === 'ATIVO'"
                   type="button"
                   class="alugueis__acao-btn"
                   aria-label="Editar aluguel"
@@ -328,7 +409,7 @@ onMounted(iniciar)
                   <AppIcon name="pencil" :size="16" />
                 </button>
                 <button
-                  v-if="aluguel.status"
+                  v-if="aluguel.status === 'ATIVO'"
                   type="button"
                   class="alugueis__acao-btn alugueis__acao-btn--perigo"
                   aria-label="Encerrar contrato"
@@ -391,15 +472,36 @@ onMounted(iniciar)
       titulo="Encerrar contrato"
       :mensagem="`Você está encerrando o contrato do aluguel do box ${aluguelParaEncerrar.box?.numero} de ${aluguelParaEncerrar.cliente?.nome}.`"
       :avisos="[
-        'Um distrato será gerado e enviado ao cliente por e-mail, se ele tiver e-mail cadastrado.',
-        'O aluguel ficará inativo e não poderá mais ser editado.',
-        'Esta ação não pode ser desfeita: um contrato encerrado não pode ser reativado.',
+        'Um distrato será gerado para ser assinado pelas duas partes.',
+        'O aluguel só ficará inativo depois que o distrato assinado for enviado.',
+        'Depois de inativo, um contrato encerrado não pode ser reativado.',
       ]"
       texto-confirmar="Encerrar contrato"
       :processando="encerrandoId === aluguelParaEncerrar.id"
       :erro="erroEncerrar"
       @confirmar="encerrarAluguel"
       @cancelar="cancelarEncerramento"
+    />
+
+    <ConfirmacaoModal
+      v-if="aluguelParaCancelar"
+      titulo="Cancelar pendência de assinatura"
+      :mensagem="`Você está desistindo da assinatura do aluguel do box ${aluguelParaCancelar.box?.numero} de ${aluguelParaCancelar.cliente?.nome}.`"
+      :avisos="DESCRICAO_CANCELAMENTO[aluguelParaCancelar.status] ?? []"
+      texto-confirmar="Cancelar pendência"
+      :processando="cancelandoId === aluguelParaCancelar.id"
+      :erro="erroCancelar"
+      @confirmar="cancelarPendencia"
+      @cancelar="aluguelParaCancelar = null"
+    />
+
+    <EscolhaContratoModal
+      v-if="aluguelDoDownload"
+      :titulo="`Baixar ${documentoDoDownload} do box ${aluguelDoDownload.box?.numero}`"
+      :documento="documentoDoDownload"
+      :assinado-disponivel="documentoDoDownload === 'contrato' ? aluguelDoDownload.contratoAssinado : aluguelDoDownload.distratoAssinado"
+      @escolher="(versao) => (documentoDoDownload === 'contrato' ? baixarContrato : baixarDistrato)(aluguelDoDownload!, versao)"
+      @fechar="aluguelDoDownload = null"
     />
 
     <ContratosModal

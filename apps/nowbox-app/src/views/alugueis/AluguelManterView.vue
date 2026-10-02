@@ -46,7 +46,6 @@ watch(
 async function carregarOpcoes() {
   const unidade = unidadeStore.state.selecionada
 
-  // Só entram boxes liberados para locação e sem aluguel ativo; na edição o box atual é incluído depois.
   ;[boxes.value, clientes.value] = await Promise.all([
     unidade
       ? carregarTodas((p, t) => boxService.listar(p, t, { idUnidade: unidade.id, disponivel: true, alugado: false }))
@@ -105,11 +104,13 @@ async function onSubmit() {
 
   try {
     if (idAluguel.value) {
-      await aluguelService.atualizar(idAluguel.value, dados)
+      const atualizado = await aluguelService.atualizar(idAluguel.value, dados)
+      if (atualizado.status === 'PENDENTE_ASSINATURA_ADITIVO') router.push(`/alugueis/${atualizado.id}/assinatura-aditivo`)
+      else voltar()
     } else {
-      await aluguelService.criar(dados)
+      const criado = await aluguelService.criar(dados)
+      router.push(`/alugueis/${criado.id}/assinatura-contrato`)
     }
-    voltar()
   } catch (e) {
     erro.value = e instanceof ApiError ? e.message : 'Não foi possível salvar o aluguel.'
   } finally {

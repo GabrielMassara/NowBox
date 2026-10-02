@@ -25,6 +25,7 @@ import BoxManterView from '../views/boxes/BoxManterView.vue'
 import BoxLoteView from '../views/boxes/BoxLoteView.vue'
 import AluguelListView from '../views/alugueis/AluguelListView.vue'
 import AluguelManterView from '../views/alugueis/AluguelManterView.vue'
+import AluguelAssinaturaView from '../views/alugueis/AluguelAssinaturaView.vue'
 import EstadoListView from '../views/estados/EstadoListView.vue'
 import AppShellLayout from '../layouts/AppShellLayout.vue'
 import { authStore } from '../stores/auth'
@@ -267,6 +268,27 @@ const router = createRouter({
           name: 'aluguel-editar',
           component: AluguelManterView,
           meta: { title: 'Editar aluguel', subtitle: 'Atualize os dados do aluguel' },
+        },
+        {
+          path: 'alugueis/:id/assinatura-contrato',
+          name: 'aluguel-assinatura-contrato',
+          component: AluguelAssinaturaView,
+          props: { tipo: 'contrato' },
+          meta: { title: 'Assinatura do contrato', subtitle: 'Baixe o contrato, colha as assinaturas e envie o arquivo assinado' },
+        },
+        {
+          path: 'alugueis/:id/assinatura-aditivo',
+          name: 'aluguel-assinatura-aditivo',
+          component: AluguelAssinaturaView,
+          props: { tipo: 'aditivo' },
+          meta: { title: 'Assinatura do aditivo', subtitle: 'Baixe o aditivo, colha as assinaturas e envie o arquivo assinado' },
+        },
+        {
+          path: 'alugueis/:id/assinatura-distrato',
+          name: 'aluguel-assinatura-distrato',
+          component: AluguelAssinaturaView,
+          props: { tipo: 'distrato' },
+          meta: { title: 'Assinatura do distrato', subtitle: 'Baixe o distrato, colha as assinaturas e envie o arquivo assinado' },
         },
         {
           path: 'estados',

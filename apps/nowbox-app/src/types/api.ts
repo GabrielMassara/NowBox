@@ -174,13 +174,20 @@ export interface BoxLoteDTO {
   preco: number
 }
 
+export type AluguelStatus = 'PENDENTE_ASSINATURA_CONTRATO' | 'ATIVO' | 'PENDENTE_ASSINATURA_ADITIVO' | 'PENDENTE_ASSINATURA_DISTRATO' | 'INATIVO'
+
 export interface AluguelResponseDTO {
   id: string
   box: BoxResponseDTO
   cliente: ClienteResponseDTO
   valor: number
   observacao?: string
-  status: boolean
+  status: AluguelStatus
+  contratoGerado: boolean
+  distratoGerado: boolean
+  contratoAssinado: boolean
+  distratoAssinado: boolean
+  idAditivoPendente?: string | null
   createdAt?: string
   deletedAt?: string
 }
@@ -202,6 +209,9 @@ export interface AditivoResponseDTO {
   tamanho: number
   descricao: string | null
   salvoEm: string
+  pendenteAssinatura: boolean
+  assinado: boolean
+  cancelado: boolean
 }
 
 export interface PageResponse<T> {
