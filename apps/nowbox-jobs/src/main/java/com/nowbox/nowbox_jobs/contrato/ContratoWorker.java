@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-// Consome as solicitacoes de contrato original ou de aditivo, gera o PDF, grava no MinIO e registra a referencia do arquivo no banco
+// Consome as solicitacoes de contrato original, de aditivo ou de distrato, gera o PDF, grava no MinIO e registra a referencia do arquivo no banco
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -24,14 +24,16 @@ public class ContratoWorker {
 
     @RabbitListener(queues = ContratoMessagingConfig.FILA_SOLICITADO)
     public void processar(ContratoSolicitadoMessage solicitacao) {
-        log.info("Gerando {} do aluguel {} (solicitacao {})", solicitacao.aditivo() ? "aditivo" : "contrato", solicitacao.idAluguel(), solicitacao.idSolicitacao());
+        log.info("Gerando {} do aluguel {} (solicitacao {})", descreverTipo(solicitacao), solicitacao.idAluguel(), solicitacao.idSolicitacao());
 
         byte[] pdf = pdfGenerator.gerar(solicitacao);
         LocalDateTime geradoEm = LocalDateTime.now();
 
-        String chave = (solicitacao.aditivo() ? "contratos/%s/%s/aditivos/%s.pdf" : "contratos/%s/%s/%s.pdf")
+        String chave = (solicitacao.aditivo() ? "contratos/%s/%s/aditivos/%s.pdf"
+                : solicitacao.distrato() ? "contratos/%s/%s/distratos/%s.pdf" : "contratos/%s/%s/%s.pdf")
                 .formatted(solicitacao.idUnidade(), solicitacao.idAluguel(), solicitacao.idSolicitacao());
-        String nomeArquivo = (solicitacao.aditivo() ? "aditivo-contrato-teste-box-%s-%s.pdf" : "contrato-teste-box-%s-%s.pdf")
+        String nomeArquivo = (solicitacao.aditivo() ? "aditivo-contrato-teste-box-%s-%s.pdf"
+                : solicitacao.distrato() ? "distrato-contrato-teste-box-%s-%s.pdf" : "contrato-teste-box-%s-%s.pdf")
                 .formatted(solicitacao.numeroBox(), CARIMBO.format(geradoEm));
 
         storageService.gravar(chave, pdf, CONTENT_TYPE_PDF);
@@ -41,5 +43,9 @@ public class ContratoWorker {
                 CONTENT_TYPE_PDF, pdf.length, geradoEm);
 
         log.info(registrado ? "Documento do aluguel {} gravado em {}" : "Documento do aluguel {} ja estava registrado em {}", solicitacao.idAluguel(), chave);
+    }
+
+    private String descreverTipo(ContratoSolicitadoMessage solicitacao) {
+        return solicitacao.aditivo() ? "aditivo" : solicitacao.distrato() ? "distrato" : "contrato";
     }
 }

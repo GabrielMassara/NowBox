@@ -66,4 +66,19 @@ class EmailTemplateRendererTest {
 
         assertThat(texto).contains("Olá, !").doesNotContain("{{");
     }
+
+    @Test
+    @DisplayName("Should fill every marker of the aluguel ended templates")
+    void renderizarAluguelEncerrado() {
+        Map<String, String> variaveis = Map.of("nome", "Maria", "numeroBox", "101", "unidade", "Unidade Centro",
+                "valor", "R$ 1.234,50", "situacao", "Inativo", "data", "05/10/2026");
+
+        String html = renderer.renderizarHtml(EmailTemplate.ALUGUEL_ENCERRADO, variaveis);
+        String texto = renderer.renderizarTexto(EmailTemplate.ALUGUEL_ENCERRADO, variaveis);
+
+        assertThat(html).contains("Olá, Maria!", "101", "Unidade Centro", "Inativo", "05/10/2026", "cid:" + EmailSender.CID_LOGO);
+        assertThat(texto).contains("Olá, Maria!", "Situação: Inativo", "Data do encerramento: 05/10/2026");
+        assertThat(html).doesNotContain("{{");
+        assertThat(texto).doesNotContain("{{");
+    }
 }

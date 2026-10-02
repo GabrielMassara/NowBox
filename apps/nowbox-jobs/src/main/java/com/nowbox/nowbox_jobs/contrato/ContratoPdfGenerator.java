@@ -21,7 +21,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-// Gera o PDF do contrato original ou do aditivo a partir dos modelos do JasperReports.
+// Gera o PDF do contrato original, do aditivo ou do distrato a partir dos modelos do JasperReports.
 @Component
 public class ContratoPdfGenerator {
 
@@ -29,6 +29,8 @@ public class ContratoPdfGenerator {
     static final String MODELO_ADITIVO_JASPER = "reports/aditivo_contrato_teste.jasper";
     static final String MODELO_ADITIVO_JRXML = "reports/aditivo_contrato_teste.jrxml";
     static final String MODELO_JRXML = "reports/contrato_teste.jrxml";
+    static final String MODELO_DISTRATO_JASPER = "reports/distrato_contrato_teste.jasper";
+    static final String MODELO_DISTRATO_JRXML = "reports/distrato_contrato_teste.jrxml";
 
     private static final Locale PT_BR = Locale.of("pt", "BR");
     private static final DateTimeFormatter DATA_POR_EXTENSO = DateTimeFormatter.ofPattern("d 'de' MMMM 'de' uuuu", PT_BR);
@@ -73,9 +75,13 @@ public class ContratoPdfGenerator {
     }
 
     private JasperReport carregarModelo(ContratoSolicitadoMessage solicitacao) {
-        return solicitacao.aditivo()
-                ? modelos.computeIfAbsent(MODELO_ADITIVO_JASPER, chave -> abrirModelo(MODELO_ADITIVO_JASPER, MODELO_ADITIVO_JRXML))
-                : modelos.computeIfAbsent(MODELO_JASPER, chave -> abrirModelo(MODELO_JASPER, MODELO_JRXML));
+        if (solicitacao.aditivo()) {
+            return modelos.computeIfAbsent(MODELO_ADITIVO_JASPER, chave -> abrirModelo(MODELO_ADITIVO_JASPER, MODELO_ADITIVO_JRXML));
+        }
+        if (solicitacao.distrato()) {
+            return modelos.computeIfAbsent(MODELO_DISTRATO_JASPER, chave -> abrirModelo(MODELO_DISTRATO_JASPER, MODELO_DISTRATO_JRXML));
+        }
+        return modelos.computeIfAbsent(MODELO_JASPER, chave -> abrirModelo(MODELO_JASPER, MODELO_JRXML));
     }
 
     private JasperReport abrirModelo(String modeloJasper, String modeloJrxml) {

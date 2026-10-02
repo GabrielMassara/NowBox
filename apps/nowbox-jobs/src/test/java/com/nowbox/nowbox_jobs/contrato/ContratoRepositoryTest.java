@@ -35,7 +35,8 @@ class ContratoRepositoryTest {
         jdbc.sql("""
                 CREATE TABLE tb_aluguel (
                     id UUID PRIMARY KEY,
-                    id_arquivo_contrato UUID UNIQUE REFERENCES tb_arquivo (id)
+                    id_arquivo_contrato UUID UNIQUE REFERENCES tb_arquivo (id),
+                    id_arquivo_distrato UUID UNIQUE REFERENCES tb_arquivo (id)
                 )""").update();
         jdbc.sql("""
                 CREATE TABLE tb_arquivo_aluguel (
@@ -111,5 +112,24 @@ class ContratoRepositoryTest {
 
         assertThat(registrado).isFalse();
         assertThat(contar("tb_arquivo")).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Should reference the distrato directly in the aluguel without creating an aditivo and keep the original contrato")
+    void registrarDistrato() {
+        ContratoSolicitadoMessage contrato = ContratoPdfGeneratorTest.solicitacao(true);
+        criarAluguel(contrato.idAluguel());
+        repository.registrar(contrato, "nowbox-contratos", "contratos/a.pdf", "contrato-teste.pdf", "application/pdf", 10L, LocalDateTime.now());
+
+        ContratoSolicitadoMessage distrato = new ContratoSolicitadoMessage(UUID.randomUUID(), ContratoSolicitadoMessage.Tipo.DISTRATO, contrato.idAluguel(),
+                contrato.idBox(), contrato.idUnidade(), "101", contrato.cnpjLocadora(), contrato.valor(), contrato.dataAssinatura(), contrato.dataAssinatura(),
+                List.of(), contrato.contratante());
+        boolean registrado = repository.registrar(distrato, "nowbox-contratos", "contratos/distratos/c.pdf", "distrato.pdf", "application/pdf", 30L, LocalDateTime.now());
+
+        assertThat(registrado).isTrue();
+        assertThat(contar("tb_arquivo")).isEqualTo(2);
+        assertThat(contar("tb_arquivo_aluguel")).isZero();
+        assertThat(chaveDoContratoOriginal()).isEqualTo("contratos/a.pdf");
+        assertThat(jdbc.sql("SELECT a.chave FROM tb_aluguel l JOIN tb_arquivo a ON a.id = l.id_arquivo_distrato").query(String.class).single()).isEqualTo("contratos/distratos/c.pdf");
     }
 }

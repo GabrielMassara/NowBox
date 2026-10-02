@@ -8,7 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-// Registra a referencia do documento gravado no MinIO. O contrato original e referenciado direto no aluguel
+// Registra a referencia do documento gravado no MinIO. O contrato original e o distrato sao referenciados direto no aluguel
 // e os aditivos entram em tb_arquivo_aluguel
 @Repository
 @RequiredArgsConstructor
@@ -41,6 +41,8 @@ public class ContratoRepository {
 
         if (solicitacao.aditivo()) {
             registrarAditivo(solicitacao, idArquivo, salvoEm);
+        } else if (solicitacao.distrato()) {
+            registrarDistrato(solicitacao, idArquivo);
         } else {
             registrarContrato(solicitacao, idArquivo);
         }
@@ -50,6 +52,13 @@ public class ContratoRepository {
 
     private void registrarContrato(ContratoSolicitadoMessage solicitacao, UUID idArquivo) {
         jdbc.sql("UPDATE tb_aluguel SET id_arquivo_contrato = :idArquivo WHERE id = :idAluguel")
+                .param("idArquivo", idArquivo)
+                .param("idAluguel", solicitacao.idAluguel())
+                .update();
+    }
+
+    private void registrarDistrato(ContratoSolicitadoMessage solicitacao, UUID idArquivo) {
+        jdbc.sql("UPDATE tb_aluguel SET id_arquivo_distrato = :idArquivo WHERE id = :idAluguel")
                 .param("idArquivo", idArquivo)
                 .param("idAluguel", solicitacao.idAluguel())
                 .update();
