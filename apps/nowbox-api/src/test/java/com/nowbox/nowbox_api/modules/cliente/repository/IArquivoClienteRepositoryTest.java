@@ -2,6 +2,7 @@ package com.nowbox.nowbox_api.modules.cliente.repository;
 
 import com.nowbox.nowbox_api.modules.cliente.ClienteTestFixtures;
 import com.nowbox.nowbox_api.modules.cliente.entity.ArquivoClienteEntity;
+import com.nowbox.nowbox_api.modules.cliente.entity.TipoDocumentoCliente;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
 import com.nowbox.nowbox_api.modules.estado.entity.EstadoEntity;
 import jakarta.persistence.EntityManager;
@@ -34,13 +35,13 @@ class IArquivoClienteRepositoryTest {
                 .email(cpf + "@test.com").telefone("11911111111").sexo("M")
                 .nascimento(LocalDate.of(1990, 1, 1)).endereco("Rua 1").numero("1")
                 .bairro("Bairro 1").cep("11111111").cidade("Cidade 1").estado(estado)
-                .documentoIdentidade(ClienteTestFixtures.documento(em)).enderecoCorrespondencia(true).senha("senha123").senhaTemporariaStatus(false).build();
+                .documentoIdentidade(ClienteTestFixtures.documento(em)).comprovanteResidencia(ClienteTestFixtures.documento(em)).enderecoCorrespondencia(true).senha("senha123").senhaTemporariaStatus(false).build();
         em.persist(cliente);
         return cliente;
     }
 
     private ArquivoClienteEntity historico(ClienteEntity cliente, LocalDateTime salvoEm) {
-        ArquivoClienteEntity historico = ArquivoClienteEntity.builder().arquivo(ClienteTestFixtures.documento(em)).cliente(cliente).salvoEm(salvoEm).build();
+        ArquivoClienteEntity historico = ArquivoClienteEntity.builder().tipo(TipoDocumentoCliente.IDENTIDADE).arquivo(ClienteTestFixtures.documento(em)).cliente(cliente).salvoEm(salvoEm).build();
         em.persist(historico);
         return historico;
     }
@@ -59,7 +60,7 @@ class IArquivoClienteRepositoryTest {
         ArquivoClienteEntity intermediario = historico(cliente, agora.minusDays(1));
         historico(outro, agora);
 
-        Page<ArquivoClienteEntity> result = arquivoClienteRepository.findByClienteIdOrderBySalvoEmDesc(cliente.getId(), PageRequest.of(0, 10));
+        Page<ArquivoClienteEntity> result = arquivoClienteRepository.findByClienteIdAndTipoOrderBySalvoEmDesc(cliente.getId(), TipoDocumentoCliente.IDENTIDADE, PageRequest.of(0, 10));
 
         assertThat(result.getContent()).extracting(ArquivoClienteEntity::getId).containsExactly(novo.getId(), intermediario.getId(), antigo.getId());
     }

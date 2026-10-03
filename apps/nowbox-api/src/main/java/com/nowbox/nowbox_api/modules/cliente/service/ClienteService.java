@@ -7,9 +7,10 @@ import com.nowbox.nowbox_api.modules.cliente.dto.ClienteFilterDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteResponseDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoDownloadDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoHistoricoDTO;
-import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoIdentidadeDTO;
+import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoClienteDTO;
 import com.nowbox.nowbox_api.modules.cliente.entity.ArquivoClienteEntity;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
+import com.nowbox.nowbox_api.modules.cliente.entity.TipoDocumentoCliente;
 import com.nowbox.nowbox_api.modules.cliente.repository.IArquivoClienteRepository;
 import com.nowbox.nowbox_api.modules.cliente.repository.IClienteRepository;
 import com.nowbox.nowbox_api.modules.cliente.storage.DocumentoStorageService;
@@ -80,10 +81,11 @@ public class ClienteService {
     }
 
     @Transactional
-    public ClienteResponseDTO create(ClienteCreateDTO cliente, MultipartFile documento) throws NaoEncontradoException {
+    public ClienteResponseDTO create(ClienteCreateDTO cliente, MultipartFile documento, MultipartFile comprovante) throws NaoEncontradoException {
 
-        // O documento é obrigatório no cadastro
-        TipoDocumento tipo = validarDocumento(documento);
+        // Identidade e comprovante de residência são obrigatórios no cadastro
+        TipoArquivo tipoDocumento = validarDocumento(documento, TipoDocumentoCliente.IDENTIDADE);
+        TipoArquivo tipoComprovante = validarDocumento(comprovante, TipoDocumentoCliente.COMPROVANTE_RESIDENCIA);
 
         Optional<EstadoEntity> estado = estadoRepository.findById(cliente.getIdEstado());
 
@@ -92,7 +94,8 @@ public class ClienteService {
             throw new NaoEncontradoException("Estado inválido");
         }
 
-        ArquivoEntity arquivo = salvarDocumento(documento, tipo);
+        ArquivoEntity arquivo = salvarDocumento(documento, tipoDocumento, TipoDocumentoCliente.IDENTIDADE);
+        ArquivoEntity arquivoComprovante = salvarDocumento(comprovante, tipoComprovante, TipoDocumentoCliente.COMPROVANTE_RESIDENCIA);
 
         ClienteEntity created = clienteRepository.save(ClienteEntity.builder()
                 .nome(cliente.getNome())
@@ -111,19 +114,21 @@ public class ClienteService {
                 .cidade(cliente.getCidade())
                 .estado(estado.get())
                 .documentoIdentidade(arquivo)
+                .comprovanteResidencia(arquivoComprovante)
                 .enderecoCorrespondencia(cliente.getEnderecoCorrespondencia())
                 .senha(cliente.getSenha())
                 .senhaTemporaria(cliente.getSenhaTemporaria())
                 .senhaTemporariaStatus(cliente.getSenhaTemporariaStatus())
                 .build());
 
-        registrarHistorico(arquivo, created);
+        registrarHistorico(arquivo, created, TipoDocumentoCliente.IDENTIDADE);
+        registrarHistorico(arquivoComprovante, created, TipoDocumentoCliente.COMPROVANTE_RESIDENCIA);
 
         return toResponseDTO(created);
     }
 
     @Transactional
-    public ClienteResponseDTO update(ClienteCreateDTO cliente, MultipartFile documento, UUID id) throws NaoEncontradoException {
+    public ClienteResponseDTO update(ClienteCreateDTO cliente, MultipartFile documento, MultipartFile comprovante, UUID id) throws NaoEncontradoException {
         // verifica se existe o registro
         Optional<ClienteEntity> existente = clienteRepository.findByIdAndDeletedAtIsNull(id);
         if(existente.isEmpty()) {
@@ -140,7 +145,13 @@ public class ClienteService {
         ArquivoEntity documentoAnterior = existente.get().getDocumentoIdentidade();
         ArquivoEntity arquivo = documentoAnterior;
         if(documento != null && !documento.isEmpty()) {
-            arquivo = salvarDocumento(documento, validarDocumento(documento));
+            arquivo = salvarDocumento(documento, validarDocumento(documento, TipoDocumentoCliente.IDENTIDADE), TipoDocumentoCliente.IDENTIDADE);
+        }
+
+        ArquivoEntity comprovanteAnterior = existente.get().getComprovanteResidencia();
+        ArquivoEntity arquivoComprovante = comprovanteAnterior;
+        if(comprovante != null && !comprovante.isEmpty()) {
+            arquivoComprovante = salvarDocumento(comprovante, validarDocumento(comprovante, TipoDocumentoCliente.COMPROVANTE_RESIDENCIA), TipoDocumentoCliente.COMPROVANTE_RESIDENCIA);
         }
 
         ClienteEntity updated = clienteRepository.save(ClienteEntity.builder()
@@ -161,6 +172,7 @@ public class ClienteService {
                 .cidade(cliente.getCidade())
                 .estado(estado.get())
                 .documentoIdentidade(arquivo)
+                .comprovanteResidencia(arquivoComprovante)
                 .enderecoCorrespondencia(cliente.getEnderecoCorrespondencia())
                 .senha(cliente.getSenha())
                 .senhaTemporaria(cliente.getSenhaTemporaria())
@@ -170,19 +182,22 @@ public class ClienteService {
 
         // Documento substituído: o novo entra no histórico e o antigo permanece guardado no MinIO
         if(arquivo != documentoAnterior) {
-            registrarHistorico(arquivo, updated);
+            registrarHistorico(arquivo, updated, TipoDocumentoCliente.IDENTIDADE);
+        }
+        if(arquivoComprovante != comprovanteAnterior) {
+            registrarHistorico(arquivoComprovante, updated, TipoDocumentoCliente.COMPROVANTE_RESIDENCIA);
         }
 
         return toResponseDTO(updated);
     }
 
-    public DocumentoDownloadDTO downloadDocumento(UUID id) throws NaoEncontradoException {
+    public DocumentoDownloadDTO downloadDocumento(UUID id, TipoDocumentoCliente tipo) throws NaoEncontradoException {
         ClienteEntity cliente = clienteRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new NaoEncontradoException("Cliente não encontrado"));
 
-        ArquivoEntity arquivo = cliente.getDocumentoIdentidade();
+        ArquivoEntity arquivo = documentoAtual(cliente, tipo);
         if(arquivo == null) {
-            throw new NaoEncontradoException("Cliente sem documento de identidade");
+            throw new NaoEncontradoException("Cliente sem " + tipo.getDescricao());
         }
 
         return new DocumentoDownloadDTO(
@@ -192,13 +207,14 @@ public class ClienteService {
                 documentoStorageService.abrir(arquivo.getChave()));
     }
 
-    public Page<DocumentoHistoricoDTO> listDocumentos(Pageable pageable, UUID id) throws NaoEncontradoException {
+    public Page<DocumentoHistoricoDTO> listDocumentos(Pageable pageable, UUID id, TipoDocumentoCliente tipo) throws NaoEncontradoException {
         ClienteEntity cliente = clienteRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new NaoEncontradoException("Cliente não encontrado"));
 
-        UUID idAtual = cliente.getDocumentoIdentidade() != null ? cliente.getDocumentoIdentidade().getId() : null;
+        ArquivoEntity atual = documentoAtual(cliente, tipo);
+        UUID idAtual = atual != null ? atual.getId() : null;
 
-        return arquivoClienteRepository.findByClienteIdOrderBySalvoEmDesc(id, pageable).map(historico -> toHistoricoDTO(historico, idAtual));
+        return arquivoClienteRepository.findByClienteIdAndTipoOrderBySalvoEmDesc(id, tipo, pageable).map(historico -> toHistoricoDTO(historico, idAtual));
     }
 
     // Baixa uma versao especifica do historico
@@ -245,6 +261,7 @@ public class ClienteService {
                 .cep(entidade.getCep())
                 .cidade(entidade.getCidade())
                 .documentoIdentidade(toDocumentoDTO(entidade.getDocumentoIdentidade()))
+                .comprovanteResidencia(toDocumentoDTO(entidade.getComprovanteResidencia()))
                 .enderecoCorrespondencia(entidade.getEnderecoCorrespondencia())
                 .senhaTemporariaStatus(entidade.getSenhaTemporariaStatus())
                 .createdAt(entidade.getCreatedAt())
@@ -258,23 +275,28 @@ public class ClienteService {
                 historico.getSalvoEm(), arquivo.getId().equals(idAtual));
     }
 
-    private void registrarHistorico(ArquivoEntity arquivo, ClienteEntity cliente) {
+    private ArquivoEntity documentoAtual(ClienteEntity cliente, TipoDocumentoCliente tipo) {
+        return tipo == TipoDocumentoCliente.IDENTIDADE ? cliente.getDocumentoIdentidade() : cliente.getComprovanteResidencia();
+    }
+
+    private void registrarHistorico(ArquivoEntity arquivo, ClienteEntity cliente, TipoDocumentoCliente tipo) {
         arquivoClienteRepository.save(ArquivoClienteEntity.builder()
                 .arquivo(arquivo)
                 .cliente(cliente)
+                .tipo(tipo)
                 .salvoEm(LocalDateTime.now())
                 .build());
     }
 
-    private DocumentoIdentidadeDTO toDocumentoDTO(ArquivoEntity arquivo) {
+    private DocumentoClienteDTO toDocumentoDTO(ArquivoEntity arquivo) {
         if(arquivo == null) {
             return null;
         }
-        return new DocumentoIdentidadeDTO(arquivo.getId(), arquivo.getNomeOriginal(), arquivo.getContentType(), arquivo.getTamanho());
+        return new DocumentoClienteDTO(arquivo.getId(), arquivo.getNomeOriginal(), arquivo.getContentType(), arquivo.getTamanho());
     }
 
     // Tipos aceitos para o documento. O tipo é identificado pelo conteúdo do arquivo, não pelo que o cliente informou
-    private enum TipoDocumento {
+    private enum TipoArquivo {
         PDF("application/pdf", ".pdf"),
         JPEG("image/jpeg", ".jpg"),
         PNG("image/png", ".png"),
@@ -283,15 +305,15 @@ public class ClienteService {
         private final String contentType;
         private final String extensao;
 
-        TipoDocumento(String contentType, String extensao) {
+        TipoArquivo(String contentType, String extensao) {
             this.contentType = contentType;
             this.extensao = extensao;
         }
     }
 
-    private TipoDocumento validarDocumento(MultipartFile documento) {
+    private TipoArquivo validarDocumento(MultipartFile documento, TipoDocumentoCliente tipoDocumento) {
         if(documento == null || documento.isEmpty()) {
-            throw new RequisicaoInvalidaException("O documento de identidade é obrigatório");
+            throw new RequisicaoInvalidaException("O " + tipoDocumento.getDescricao() + " é obrigatório");
         }
 
         byte[] inicio = new byte[12];
@@ -303,25 +325,25 @@ public class ClienteService {
         }
 
         if(lidos >= 4 && inicio[0] == '%' && inicio[1] == 'P' && inicio[2] == 'D' && inicio[3] == 'F') {
-            return TipoDocumento.PDF;
+            return TipoArquivo.PDF;
         }
         if(lidos >= 3 && (inicio[0] & 0xFF) == 0xFF && (inicio[1] & 0xFF) == 0xD8 && (inicio[2] & 0xFF) == 0xFF) {
-            return TipoDocumento.JPEG;
+            return TipoArquivo.JPEG;
         }
         if(lidos >= 4 && (inicio[0] & 0xFF) == 0x89 && inicio[1] == 'P' && inicio[2] == 'N' && inicio[3] == 'G') {
-            return TipoDocumento.PNG;
+            return TipoArquivo.PNG;
         }
         if(lidos >= 12 && inicio[0] == 'R' && inicio[1] == 'I' && inicio[2] == 'F' && inicio[3] == 'F'
                 && inicio[8] == 'W' && inicio[9] == 'E' && inicio[10] == 'B' && inicio[11] == 'P') {
-            return TipoDocumento.WEBP;
+            return TipoArquivo.WEBP;
         }
 
-        throw new RequisicaoInvalidaException("O documento de identidade deve ser uma imagem (JPG, PNG ou WEBP) ou um PDF");
+        throw new RequisicaoInvalidaException("O " + tipoDocumento.getDescricao() + " deve ser uma imagem (JPG, PNG ou WEBP) ou um PDF");
     }
 
     // Grava direto no MinIO (sem fila) e registra o arquivo. Se a transação for revertida, o objeto é apagado
-    private ArquivoEntity salvarDocumento(MultipartFile documento, TipoDocumento tipo) {
-        String chave = "clientes/documentos-identidade/" + UUID.randomUUID() + tipo.extensao;
+    private ArquivoEntity salvarDocumento(MultipartFile documento, TipoArquivo tipo, TipoDocumentoCliente tipoDocumento) {
+        String chave = tipoDocumento.getPrefixoChave() + UUID.randomUUID() + tipo.extensao;
 
         try (InputStream in = documento.getInputStream()) {
             documentoStorageService.salvar(chave, in, documento.getSize(), tipo.contentType);

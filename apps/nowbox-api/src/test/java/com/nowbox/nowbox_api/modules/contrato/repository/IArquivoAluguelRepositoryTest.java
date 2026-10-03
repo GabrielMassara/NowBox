@@ -49,7 +49,7 @@ class IArquivoAluguelRepositoryTest {
                 .email("cliente1@test.com").telefone("11911111111").sexo("M")
                 .nascimento(LocalDate.of(1990, 1, 1)).endereco("Rua 1").numero("1")
                 .bairro("Bairro 1").cep("11111111").cidade("Cidade 1").estado(estado)
-                .documentoIdentidade(ClienteTestFixtures.documento(em)).enderecoCorrespondencia(true).senha("senha123").senhaTemporariaStatus(false).build();
+                .documentoIdentidade(ClienteTestFixtures.documento(em)).comprovanteResidencia(ClienteTestFixtures.documento(em)).enderecoCorrespondencia(true).senha("senha123").senhaTemporariaStatus(false).build();
         em.persist(cliente);
         return cliente;
     }

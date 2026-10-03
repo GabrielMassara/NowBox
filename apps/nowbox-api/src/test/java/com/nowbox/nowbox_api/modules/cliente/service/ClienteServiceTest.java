@@ -9,6 +9,7 @@ import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoDownloadDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoHistoricoDTO;
 import com.nowbox.nowbox_api.modules.cliente.entity.ArquivoClienteEntity;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
+import com.nowbox.nowbox_api.modules.cliente.entity.TipoDocumentoCliente;
 import com.nowbox.nowbox_api.modules.cliente.repository.IArquivoClienteRepository;
 import com.nowbox.nowbox_api.modules.cliente.repository.IClienteRepository;
 import com.nowbox.nowbox_api.modules.cliente.storage.DocumentoStorageService;
@@ -62,6 +63,10 @@ class ClienteServiceTest {
 
     @Mock
     private DocumentoStorageService documentoStorageService;
+
+    private MockMultipartFile comprovantePdf() {
+        return new MockMultipartFile("comprovanteResidencia", "conta-luz.pdf", "application/pdf", "%PDF-1.4 comprovante".getBytes());
+    }
 
     // Documento valido (cabecalho de PDF) para os cenarios de cadastro
     private MockMultipartFile documentoPdf() {
@@ -251,7 +256,7 @@ class ClienteServiceTest {
         when(arquivoRepository.save(any(ArquivoEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // chama a funcao create
-        ClienteResponseDTO result = clienteService.create(cliente, documentoPdf());
+        ClienteResponseDTO result = clienteService.create(cliente, documentoPdf(), comprovantePdf());
 
         assertThat(result.getId()).isEqualTo(id);
         assertThat(result.getNome()).isEqualTo("Cliente Test");
@@ -263,23 +268,28 @@ class ClienteServiceTest {
 
         // verifica se ao chamar o save ele passou uma entidade com os dados corretos
         verify(clienteRepository).save(argThat(e -> e.getNome().equals("Cliente Test") && e.getCpf().equals("12345678901") && e.getEstado().equals(estado)
-                && e.getDocumentoIdentidade() != null && e.getDocumentoIdentidade().getContentType().equals("application/pdf")));
+                && e.getDocumentoIdentidade() != null && e.getDocumentoIdentidade().getContentType().equals("application/pdf")
+                && e.getComprovanteResidencia() != null && e.getComprovanteResidencia() != e.getDocumentoIdentidade()));
 
-        // verifica se gravou o documento direto no storage, sem fila
+        // verifica se gravou os documentos direto no storage, sem fila
         verify(documentoStorageService).salvar(argThat(c -> c.startsWith("clientes/documentos-identidade/") && c.endsWith(".pdf")), any(), anyLong(), eq("application/pdf"));
+        verify(documentoStorageService).salvar(argThat(c -> c.startsWith("clientes/comprovantes-residencia/") && c.endsWith(".pdf")), any(), anyLong(), eq("application/pdf"));
 
-        // verifica se o documento entrou no historico do cliente
-        verify(arquivoClienteRepository).save(argThat(h -> h.getCliente() == entidadeSalva && h.getArquivo().getContentType().equals("application/pdf") && h.getSalvoEm() != null));
+        // verifica se cada documento entrou no historico do cliente com o seu tipo
+        verify(arquivoClienteRepository).save(argThat(h -> h.getCliente() == entidadeSalva && h.getTipo() == TipoDocumentoCliente.IDENTIDADE && h.getArquivo().getContentType().equals("application/pdf") && h.getSalvoEm() != null));
+        verify(arquivoClienteRepository).save(argThat(h -> h.getCliente() == entidadeSalva && h.getTipo() == TipoDocumentoCliente.COMPROVANTE_RESIDENCIA && h.getSalvoEm() != null));
     }
 
     @Test
-    @DisplayName("Should throw exception when creating cliente without documento")
+    @DisplayName("Should throw exception when creating cliente without documento or comprovante de residencia")
     void createCase3() {
         ClienteCreateDTO cliente = ClienteCreateDTO.builder().idEstado(UUID.randomUUID()).nome("Cliente Test").build();
 
         // sem arquivo e com arquivo vazio
-        assertThrows(RequisicaoInvalidaException.class, () -> clienteService.create(cliente, null));
-        assertThrows(RequisicaoInvalidaException.class, () -> clienteService.create(cliente, new MockMultipartFile("documento", "rg.pdf", "application/pdf", new byte[0])));
+        assertThrows(RequisicaoInvalidaException.class, () -> clienteService.create(cliente, null, comprovantePdf()));
+        assertThrows(RequisicaoInvalidaException.class, () -> clienteService.create(cliente, new MockMultipartFile("documento", "rg.pdf", "application/pdf", new byte[0]), comprovantePdf()));
+        assertThrows(RequisicaoInvalidaException.class, () -> clienteService.create(cliente, documentoPdf(), null));
+        assertThrows(RequisicaoInvalidaException.class, () -> clienteService.create(cliente, documentoPdf(), new MockMultipartFile("comprovanteResidencia", "conta.pdf", "application/pdf", new byte[0])));
 
         // nada deve ser gravado
         verify(documentoStorageService, never()).salvar(anyString(), any(), anyLong(), anyString());
@@ -294,7 +304,8 @@ class ClienteServiceTest {
         // o content-type informado e pdf, mas o conteudo nao e
         MockMultipartFile falso = new MockMultipartFile("documento", "rg.pdf", "application/pdf", "<html>nao e pdf</html>".getBytes());
 
-        assertThrows(RequisicaoInvalidaException.class, () -> clienteService.create(cliente, falso));
+        assertThrows(RequisicaoInvalidaException.class, () -> clienteService.create(cliente, falso, comprovantePdf()));
+        assertThrows(RequisicaoInvalidaException.class, () -> clienteService.create(cliente, documentoPdf(), falso));
 
         verify(documentoStorageService, never()).salvar(anyString(), any(), anyLong(), anyString());
         verify(clienteRepository, never()).save(any());
@@ -313,7 +324,7 @@ class ClienteServiceTest {
         when(estadoRepository.findById(idEstado)).thenReturn(Optional.empty());
 
         // chama a funcao create e verifica se lanca a excecao esperada
-        assertThrows(NaoEncontradoException.class, () -> clienteService.create(cliente, documentoPdf()));
+        assertThrows(NaoEncontradoException.class, () -> clienteService.create(cliente, documentoPdf(), comprovantePdf()));
 
         // verifica se buscou o estado antes de tentar criar
         verify(estadoRepository).findById(idEstado);
@@ -335,8 +346,9 @@ class ClienteServiceTest {
 
         // Mock para simular que o cliente existe
         EstadoEntity estadoAntigo = EstadoEntity.builder().nome("Estado Old").uf("YY").build();
+        ArquivoEntity comprovanteAtual = ArquivoEntity.builder().id(UUID.randomUUID()).chave("clientes/comprovantes-residencia/atual.pdf").build();
         ArquivoEntity documentoAntigo = ArquivoEntity.builder().id(UUID.randomUUID()).chave("clientes/documentos-identidade/antigo.pdf").build();
-        ClienteEntity entidadeExistente = ClienteEntity.builder().id(id).nome("Cliente Test").enderecoCorrespondencia(true).estado(estadoAntigo).documentoIdentidade(documentoAntigo).createdAt(LocalDateTime.now()).build();
+        ClienteEntity entidadeExistente = ClienteEntity.builder().id(id).nome("Cliente Test").enderecoCorrespondencia(true).estado(estadoAntigo).documentoIdentidade(documentoAntigo).comprovanteResidencia(comprovanteAtual).createdAt(LocalDateTime.now()).build();
         when(clienteRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
         when(arquivoRepository.save(any(ArquivoEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -349,7 +361,7 @@ class ClienteServiceTest {
         when(clienteRepository.save(any(ClienteEntity.class))).thenReturn(entidadeAtualizada);
 
         // chama a funcao update
-        ClienteResponseDTO result = clienteService.update(cliente, documentoPdf(), id);
+        ClienteResponseDTO result = clienteService.update(cliente, documentoPdf(), null, id);
 
         assertThat(result.getId()).isEqualTo(id);
         assertThat(result.getNome()).isEqualTo("Cliente Atualizado");
@@ -362,12 +374,39 @@ class ClienteServiceTest {
 
         // verifica se salvou a entidade com os dados atualizados
         verify(clienteRepository).save(argThat(e -> e.getId().equals(id) && e.getNome().equals("Cliente Atualizado") && e.getEstado().equals(estado)
-                && e.getDocumentoIdentidade() != documentoAntigo));
+                && e.getDocumentoIdentidade() != documentoAntigo && e.getComprovanteResidencia() == comprovanteAtual));
 
         // verifica se gravou o novo documento no historico e manteve o antigo registrado e no storage
         verify(documentoStorageService).salvar(anyString(), any(), anyLong(), eq("application/pdf"));
-        verify(arquivoClienteRepository).save(argThat(h -> h.getCliente() == entidadeAtualizada && h.getArquivo() != documentoAntigo));
+        verify(arquivoClienteRepository).save(argThat(h -> h.getCliente() == entidadeAtualizada && h.getArquivo() != documentoAntigo && h.getTipo() == TipoDocumentoCliente.IDENTIDADE));
+        // o comprovante nao foi enviado, entao nao entra no historico
+        verify(arquivoClienteRepository, never()).save(argThat(h -> h.getTipo() == TipoDocumentoCliente.COMPROVANTE_RESIDENCIA));
         verify(arquivoRepository, never()).delete(any());
+        verify(documentoStorageService, never()).remover(anyString());
+    }
+
+    @Test
+    @DisplayName("Should replace only the comprovante de residencia keeping the documento and its history")
+    void updateComprovante() {
+        UUID id = UUID.randomUUID();
+        UUID idEstado = UUID.randomUUID();
+        ClienteCreateDTO cliente = ClienteCreateDTO.builder().idEstado(idEstado).nome("Cliente Atualizado").build();
+
+        EstadoEntity estado = EstadoEntity.builder().id(idEstado).nome("Estado Test").uf("XX").build();
+        ArquivoEntity documentoAtual = ArquivoEntity.builder().id(UUID.randomUUID()).chave("clientes/documentos-identidade/atual.pdf").build();
+        ArquivoEntity comprovanteAntigo = ArquivoEntity.builder().id(UUID.randomUUID()).chave("clientes/comprovantes-residencia/antigo.pdf").build();
+        ClienteEntity entidadeExistente = ClienteEntity.builder().id(id).estado(estado).documentoIdentidade(documentoAtual).comprovanteResidencia(comprovanteAntigo).build();
+        when(clienteRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
+        when(estadoRepository.findById(idEstado)).thenReturn(Optional.of(estado));
+        when(arquivoRepository.save(any(ArquivoEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(clienteRepository.save(any(ClienteEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        clienteService.update(cliente, null, comprovantePdf(), id);
+
+        verify(clienteRepository).save(argThat(e -> e.getDocumentoIdentidade() == documentoAtual
+                && e.getComprovanteResidencia() != comprovanteAntigo && e.getComprovanteResidencia().getChave().startsWith("clientes/comprovantes-residencia/")));
+        verify(arquivoClienteRepository).save(argThat(h -> h.getTipo() == TipoDocumentoCliente.COMPROVANTE_RESIDENCIA && h.getArquivo() != comprovanteAntigo));
+        verify(arquivoClienteRepository, never()).save(argThat(h -> h.getTipo() == TipoDocumentoCliente.IDENTIDADE));
         verify(documentoStorageService, never()).remover(anyString());
     }
 
@@ -380,17 +419,18 @@ class ClienteServiceTest {
 
         EstadoEntity estado = EstadoEntity.builder().id(idEstado).nome("Estado Test").uf("XX").build();
         ArquivoEntity documentoAtual = ArquivoEntity.builder().id(UUID.randomUUID()).chave("clientes/documentos-identidade/atual.pdf").nomeOriginal("rg.pdf").contentType("application/pdf").tamanho(10L).build();
-        ClienteEntity entidadeExistente = ClienteEntity.builder().id(id).nome("Cliente Test").estado(estado).documentoIdentidade(documentoAtual).build();
+        ArquivoEntity comprovanteAtual = ArquivoEntity.builder().id(UUID.randomUUID()).chave("clientes/comprovantes-residencia/atual.pdf").build();
+        ClienteEntity entidadeExistente = ClienteEntity.builder().id(id).nome("Cliente Test").estado(estado).documentoIdentidade(documentoAtual).comprovanteResidencia(comprovanteAtual).build();
         when(clienteRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
         when(estadoRepository.findById(idEstado)).thenReturn(Optional.of(estado));
         when(clienteRepository.save(any(ClienteEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ClienteResponseDTO result = clienteService.update(cliente, null, id);
+        ClienteResponseDTO result = clienteService.update(cliente, null, null, id);
 
         assertThat(result.getDocumentoIdentidade().id()).isEqualTo(documentoAtual.getId());
 
         // nada e gravado nem apagado no storage
-        verify(clienteRepository).save(argThat(e -> e.getDocumentoIdentidade() == documentoAtual));
+        verify(clienteRepository).save(argThat(e -> e.getDocumentoIdentidade() == documentoAtual && e.getComprovanteResidencia() == comprovanteAtual));
         verify(documentoStorageService, never()).salvar(anyString(), any(), anyLong(), anyString());
         verify(documentoStorageService, never()).remover(anyString());
         verify(arquivoRepository, never()).delete(any());
@@ -408,7 +448,7 @@ class ClienteServiceTest {
         when(clienteRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.empty());
 
         // chama a funcao update e verifica se lanca a excecao esperada
-        assertThrows(NaoEncontradoException.class, () -> clienteService.update(cliente, null, id));
+        assertThrows(NaoEncontradoException.class, () -> clienteService.update(cliente, null, null, id));
 
         // verifica se buscou o cliente antes de tentar atualizar
         verify(clienteRepository).findByIdAndDeletedAtIsNull(id);
@@ -428,6 +468,7 @@ class ClienteServiceTest {
 
         // Mock para simular que o cliente existe
         EstadoEntity estadoAntigo = EstadoEntity.builder().nome("Estado Old").uf("YY").build();
+        ArquivoEntity comprovanteAtual = ArquivoEntity.builder().id(UUID.randomUUID()).chave("clientes/comprovantes-residencia/atual.pdf").build();
         ClienteEntity entidadeExistente = ClienteEntity.builder().id(id).nome("Cliente Test").estado(estadoAntigo).build();
         when(clienteRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(entidadeExistente));
 
@@ -435,7 +476,7 @@ class ClienteServiceTest {
         when(estadoRepository.findById(idEstado)).thenReturn(Optional.empty());
 
         // chama a funcao update e verifica se lanca a excecao esperada
-        assertThrows(NaoEncontradoException.class, () -> clienteService.update(cliente, null, id));
+        assertThrows(NaoEncontradoException.class, () -> clienteService.update(cliente, null, null, id));
 
         // verifica se buscou o cliente e o estado antes de tentar atualizar
         verify(clienteRepository).findByIdAndDeletedAtIsNull(id);
@@ -492,13 +533,35 @@ class ClienteServiceTest {
 
         LocalDateTime agora = LocalDateTime.now();
         PageRequest pageable = PageRequest.of(0, 10);
-        when(arquivoClienteRepository.findByClienteIdOrderBySalvoEmDesc(id, pageable)).thenReturn(new PageImpl<>(List.of(
+        when(arquivoClienteRepository.findByClienteIdAndTipoOrderBySalvoEmDesc(id, TipoDocumentoCliente.IDENTIDADE, pageable)).thenReturn(new PageImpl<>(List.of(
                 ArquivoClienteEntity.builder().id(UUID.randomUUID()).arquivo(atual).cliente(cliente).salvoEm(agora).build(),
                 ArquivoClienteEntity.builder().id(UUID.randomUUID()).arquivo(antigo).cliente(cliente).salvoEm(agora.minusDays(1)).build())));
 
-        Page<DocumentoHistoricoDTO> result = clienteService.listDocumentos(pageable, id);
+        Page<DocumentoHistoricoDTO> result = clienteService.listDocumentos(pageable, id, TipoDocumentoCliente.IDENTIDADE);
 
         assertThat(result.getContent()).extracting(DocumentoHistoricoDTO::nomeArquivo).containsExactly("novo.pdf", "antigo.pdf");
+        assertThat(result.getContent()).extracting(DocumentoHistoricoDTO::atual).containsExactly(true, false);
+    }
+
+    @Test
+    @DisplayName("Should list the comprovante de residencia history marking the current one")
+    void listComprovantes() {
+        UUID id = UUID.randomUUID();
+        ArquivoEntity atual = ArquivoEntity.builder().id(UUID.randomUUID()).nomeOriginal("conta-nova.pdf").contentType("application/pdf").tamanho(20L).build();
+        ArquivoEntity antigo = ArquivoEntity.builder().id(UUID.randomUUID()).nomeOriginal("conta-antiga.pdf").contentType("application/pdf").tamanho(10L).build();
+        ArquivoEntity identidade = ArquivoEntity.builder().id(UUID.randomUUID()).nomeOriginal("rg.pdf").contentType("application/pdf").tamanho(10L).build();
+        ClienteEntity cliente = ClienteEntity.builder().id(id).documentoIdentidade(identidade).comprovanteResidencia(atual).build();
+        when(clienteRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(cliente));
+
+        LocalDateTime agora = LocalDateTime.now();
+        PageRequest pageable = PageRequest.of(0, 10);
+        when(arquivoClienteRepository.findByClienteIdAndTipoOrderBySalvoEmDesc(id, TipoDocumentoCliente.COMPROVANTE_RESIDENCIA, pageable)).thenReturn(new PageImpl<>(List.of(
+                ArquivoClienteEntity.builder().id(UUID.randomUUID()).arquivo(atual).cliente(cliente).tipo(TipoDocumentoCliente.COMPROVANTE_RESIDENCIA).salvoEm(agora).build(),
+                ArquivoClienteEntity.builder().id(UUID.randomUUID()).arquivo(antigo).cliente(cliente).tipo(TipoDocumentoCliente.COMPROVANTE_RESIDENCIA).salvoEm(agora.minusDays(1)).build())));
+
+        Page<DocumentoHistoricoDTO> result = clienteService.listDocumentos(pageable, id, TipoDocumentoCliente.COMPROVANTE_RESIDENCIA);
+
+        assertThat(result.getContent()).extracting(DocumentoHistoricoDTO::nomeArquivo).containsExactly("conta-nova.pdf", "conta-antiga.pdf");
         assertThat(result.getContent()).extracting(DocumentoHistoricoDTO::atual).containsExactly(true, false);
     }
 
@@ -508,9 +571,9 @@ class ClienteServiceTest {
         UUID id = UUID.randomUUID();
         when(clienteRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.empty());
 
-        assertThrows(NaoEncontradoException.class, () -> clienteService.listDocumentos(PageRequest.of(0, 10), id));
+        assertThrows(NaoEncontradoException.class, () -> clienteService.listDocumentos(PageRequest.of(0, 10), id, TipoDocumentoCliente.IDENTIDADE));
 
-        verify(arquivoClienteRepository, never()).findByClienteIdOrderBySalvoEmDesc(any(), any());
+        verify(arquivoClienteRepository, never()).findByClienteIdAndTipoOrderBySalvoEmDesc(any(), any(), any());
     }
 
     @Test

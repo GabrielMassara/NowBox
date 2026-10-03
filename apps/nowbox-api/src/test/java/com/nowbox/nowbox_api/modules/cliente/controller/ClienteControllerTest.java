@@ -8,6 +8,7 @@ import com.nowbox.nowbox_api.modules.cliente.dto.ClienteCreateDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteResponseDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoDownloadDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoHistoricoDTO;
+import com.nowbox.nowbox_api.modules.cliente.entity.TipoDocumentoCliente;
 import com.nowbox.nowbox_api.modules.cliente.service.ClienteService;
 import com.nowbox.nowbox_api.modules.estado.entity.EstadoEntity;
 import org.junit.jupiter.api.DisplayName;
@@ -57,6 +58,10 @@ class ClienteControllerTest {
 
     private MockMultipartFile parteDocumento() {
         return new MockMultipartFile("documento", "rg.pdf", "application/pdf", "%PDF-1.4".getBytes());
+    }
+
+    private MockMultipartFile parteComprovante() {
+        return new MockMultipartFile("comprovanteResidencia", "conta-luz.pdf", "application/pdf", "%PDF-1.4".getBytes());
     }
 
     @Test
@@ -132,16 +137,16 @@ class ClienteControllerTest {
         ClienteResponseDTO dtoSalvo = ClienteResponseDTO.builder().id(id).nome("Cliente Test").estado(estado).build();
 
         // Quando chamar create ele retorna o mock dtoSalvo
-        when(clienteService.create(any(ClienteCreateDTO.class), any())).thenReturn(dtoSalvo);
+        when(clienteService.create(any(ClienteCreateDTO.class), any(), any())).thenReturn(dtoSalvo);
 
         // chama o endpoint POST /v1/cliente
-        mockMvc.perform(multipart("/v1/cliente").file(parteCliente(cliente)).file(parteDocumento()))
+        mockMvc.perform(multipart("/v1/cliente").file(parteCliente(cliente)).file(parteDocumento()).file(parteComprovante()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(id.toString()))
                 .andExpect(jsonPath("$.nome").value("Cliente Test"));
 
         // verifica se o service foi chamado com os dados corretos
-        verify(clienteService).create(argThat(c -> c.getIdEstado().equals(idEstado) && c.getNome().equals("Cliente Test")), argThat(d -> d != null && "rg.pdf".equals(d.getOriginalFilename())));
+        verify(clienteService).create(argThat(c -> c.getIdEstado().equals(idEstado) && c.getNome().equals("Cliente Test")), argThat(d -> d != null && "rg.pdf".equals(d.getOriginalFilename())), argThat(d -> d != null && "conta-luz.pdf".equals(d.getOriginalFilename())));
     }
 
     @Test
@@ -151,14 +156,14 @@ class ClienteControllerTest {
         ClienteCreateDTO cliente = ClienteCreateDTO.builder().idEstado(UUID.randomUUID()).nome("Cliente Test").build();
 
         // Mock para simular que o service lanca excecao pois o estado nao existe
-        when(clienteService.create(any(ClienteCreateDTO.class), any())).thenThrow(new NaoEncontradoException("Estado inválido"));
+        when(clienteService.create(any(ClienteCreateDTO.class), any(), any())).thenThrow(new NaoEncontradoException("Estado inválido"));
 
         // chama o endpoint POST /v1/cliente e verifica se retorna 404
-        mockMvc.perform(multipart("/v1/cliente").file(parteCliente(cliente)).file(parteDocumento()))
+        mockMvc.perform(multipart("/v1/cliente").file(parteCliente(cliente)).file(parteDocumento()).file(parteComprovante()))
                 .andExpect(status().isNotFound());
 
         // verifica se o service foi chamado com os dados corretos
-        verify(clienteService).create(any(ClienteCreateDTO.class), any());
+        verify(clienteService).create(any(ClienteCreateDTO.class), any(), any());
     }
 
     @Test
@@ -167,12 +172,12 @@ class ClienteControllerTest {
         ClienteCreateDTO cliente = ClienteCreateDTO.builder().idEstado(UUID.randomUUID()).nome("Cliente Test").build();
 
         // o service e quem exige o documento
-        when(clienteService.create(any(ClienteCreateDTO.class), isNull())).thenThrow(new RequisicaoInvalidaException("O documento de identidade é obrigatório"));
+        when(clienteService.create(any(ClienteCreateDTO.class), isNull(), isNull())).thenThrow(new RequisicaoInvalidaException("O documento de identidade é obrigatório"));
 
         mockMvc.perform(multipart("/v1/cliente").file(parteCliente(cliente)))
                 .andExpect(status().isBadRequest());
 
-        verify(clienteService).create(any(ClienteCreateDTO.class), isNull());
+        verify(clienteService).create(any(ClienteCreateDTO.class), isNull(), isNull());
     }
 
     @Test
@@ -186,7 +191,7 @@ class ClienteControllerTest {
         // Mock para simular resposta do Service
         EstadoEntity estado = EstadoEntity.builder().id(idEstado).nome("Estado Test").uf("XX").build();
         ClienteResponseDTO dtoAtualizado = ClienteResponseDTO.builder().id(id).nome("Cliente Test").estado(estado).build();
-        when(clienteService.update(any(ClienteCreateDTO.class), any(), eq(id))).thenReturn(dtoAtualizado);
+        when(clienteService.update(any(ClienteCreateDTO.class), any(), any(), eq(id))).thenReturn(dtoAtualizado);
 
         // chama o endpoint PUT /v1/cliente/{id}
         mockMvc.perform(multipart(HttpMethod.PUT, "/v1/cliente/{id}", id).file(parteCliente(cliente)))
@@ -195,7 +200,7 @@ class ClienteControllerTest {
                 .andExpect(jsonPath("$.nome").value("Cliente Test"));
 
         // verifica se o service foi chamado com o id e os dados corretos
-        verify(clienteService).update(argThat(c -> c.getNome().equals("Cliente Test")), isNull(), eq(id));
+        verify(clienteService).update(argThat(c -> c.getNome().equals("Cliente Test")), isNull(), isNull(), eq(id));
     }
 
     @Test
@@ -206,14 +211,14 @@ class ClienteControllerTest {
         ClienteCreateDTO cliente = ClienteCreateDTO.builder().idEstado(UUID.randomUUID()).nome("Cliente Test").build();
 
         // Mock para simular que o service lanca excecao pois o cliente nao existe
-        when(clienteService.update(any(ClienteCreateDTO.class), any(), eq(id))).thenThrow(new NaoEncontradoException("Cliente não encontrado"));
+        when(clienteService.update(any(ClienteCreateDTO.class), any(), any(), eq(id))).thenThrow(new NaoEncontradoException("Cliente não encontrado"));
 
         // chama o endpoint PUT /v1/cliente/{id} e verifica se retorna 404
         mockMvc.perform(multipart(HttpMethod.PUT, "/v1/cliente/{id}", id).file(parteCliente(cliente)))
                 .andExpect(status().isNotFound());
 
         // verifica se o service foi chamado com o id e os dados corretos
-        verify(clienteService).update(any(ClienteCreateDTO.class), any(), eq(id));
+        verify(clienteService).update(any(ClienteCreateDTO.class), any(), any(), eq(id));
     }
 
     @Test
@@ -239,7 +244,7 @@ class ClienteControllerTest {
         UUID id = UUID.randomUUID();
         Page<DocumentoHistoricoDTO> page = new PageImpl<>(List.of(
                 new DocumentoHistoricoDTO(UUID.randomUUID(), "rg.pdf", "application/pdf", 10L, LocalDateTime.now(), true)));
-        when(clienteService.listDocumentos(any(), eq(id))).thenReturn(page);
+        when(clienteService.listDocumentos(any(), eq(id), eq(TipoDocumentoCliente.IDENTIDADE))).thenReturn(page);
 
         mockMvc.perform(get("/v1/cliente/{id}/documentos", id))
                 .andExpect(status().isOk())
@@ -251,7 +256,7 @@ class ClienteControllerTest {
     @DisplayName("Should return status 404 when listing documentos of a cliente that does not exist")
     void listDocumentosNotFound() throws Exception {
         UUID id = UUID.randomUUID();
-        when(clienteService.listDocumentos(any(), eq(id))).thenThrow(new NaoEncontradoException("Cliente não encontrado"));
+        when(clienteService.listDocumentos(any(), eq(id), eq(TipoDocumentoCliente.IDENTIDADE))).thenThrow(new NaoEncontradoException("Cliente não encontrado"));
 
         mockMvc.perform(get("/v1/cliente/{id}/documentos", id))
                 .andExpect(status().isNotFound());
@@ -267,5 +272,18 @@ class ClienteControllerTest {
         mockMvc.perform(get("/v1/cliente/{id}/documentos/{idDocumento}", id, idDocumento))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("application/pdf"));
+    }
+
+    @Test
+    @DisplayName("Should list the comprovante de residencia history of a cliente with status 200")
+    void listComprovantes() throws Exception {
+        UUID id = UUID.randomUUID();
+        Page<DocumentoHistoricoDTO> page = new PageImpl<>(List.of(
+                new DocumentoHistoricoDTO(UUID.randomUUID(), "conta-luz.pdf", "application/pdf", 10L, LocalDateTime.now(), true)));
+        when(clienteService.listDocumentos(any(), eq(id), eq(TipoDocumentoCliente.COMPROVANTE_RESIDENCIA))).thenReturn(page);
+
+        mockMvc.perform(get("/v1/cliente/{id}/documentos", id).param("tipo", "COMPROVANTE_RESIDENCIA"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].nomeArquivo").value("conta-luz.pdf"));
     }
 }

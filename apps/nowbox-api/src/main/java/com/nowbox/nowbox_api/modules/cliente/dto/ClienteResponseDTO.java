@@ -48,7 +48,9 @@ public class ClienteResponseDTO {
 
     private Boolean enderecoCorrespondencia;
 
-    private DocumentoIdentidadeDTO documentoIdentidade;
+    private DocumentoClienteDTO documentoIdentidade;
+
+    private DocumentoClienteDTO comprovanteResidencia;
 
     private Boolean senhaTemporariaStatus;
 

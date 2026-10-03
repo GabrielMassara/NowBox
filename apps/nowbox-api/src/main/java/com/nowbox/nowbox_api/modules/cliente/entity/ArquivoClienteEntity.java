@@ -31,6 +31,11 @@ public class ArquivoClienteEntity {
     @NotNull
     private ClienteEntity cliente;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    @NotNull
+    private TipoDocumentoCliente tipo;
+
     @Column(name = "salvo_em")
     private LocalDateTime salvoEm;
 

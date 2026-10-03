@@ -75,6 +75,10 @@ public class ClienteEntity {
     @JoinColumn(name = "id_documento_identidade", nullable = false)
     private ArquivoEntity documentoIdentidade;
 
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "id_comprovante_residencia", nullable = false)
+    private ArquivoEntity comprovanteResidencia;
+
     @Column(name = "endereco_correspondencia")
     private Boolean enderecoCorrespondencia;
 
