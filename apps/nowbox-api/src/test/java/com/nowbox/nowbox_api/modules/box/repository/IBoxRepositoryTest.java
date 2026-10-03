@@ -224,7 +224,7 @@ class IBoxRepositoryTest {
                 .email("cliente@test.com").telefone("11911111111").sexo("M")
                 .nascimento(LocalDate.of(1990, 1, 1)).endereco("Rua 1").numero("1")
                 .bairro("Bairro 1").cep("11111111").cidade("Cidade 1").estado(boxAtivo.getUnidade().getEstado())
-                .documentoIdentidade(ClienteTestFixtures.documento(this.em)).enderecoCorrespondencia(true).senha("senha123").senhaTemporariaStatus(false).build();
+                .documentoIdentidade(ClienteTestFixtures.documento(this.em)).comprovanteResidencia(ClienteTestFixtures.documento(this.em)).enderecoCorrespondencia(true).senha("senha123").senhaTemporariaStatus(false).build();
         this.em.persist(cliente);
 
         AluguelEntity ativo = AluguelEntity.builder().box(boxAtivo).cliente(cliente).valor(BigDecimal.valueOf(150.00)).status(StatusAluguel.ATIVO).build();

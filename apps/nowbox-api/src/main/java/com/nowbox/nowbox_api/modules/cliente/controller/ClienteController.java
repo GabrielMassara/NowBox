@@ -6,6 +6,7 @@ import com.nowbox.nowbox_api.modules.cliente.dto.ClienteFilterDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.ClienteResponseDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoDownloadDTO;
 import com.nowbox.nowbox_api.modules.cliente.dto.DocumentoHistoricoDTO;
+import com.nowbox.nowbox_api.modules.cliente.entity.TipoDocumentoCliente;
 import com.nowbox.nowbox_api.modules.cliente.service.ClienteService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -45,15 +46,15 @@ public class ClienteController {
 
     @GetMapping("/{id}/documento")
     @PreAuthorize("hasAuthority('MOD_CLIENTE_OPE_CONSULTAR')")
-    public ResponseEntity<InputStreamResource> downloadDocumento(@PathVariable UUID id) throws NaoEncontradoException {
-        return toResponse(clienteService.downloadDocumento(id));
+    public ResponseEntity<InputStreamResource> downloadDocumento(@PathVariable UUID id, @RequestParam(defaultValue = "IDENTIDADE") TipoDocumentoCliente tipo) throws NaoEncontradoException {
+        return toResponse(clienteService.downloadDocumento(id, tipo));
     }
 
     @GetMapping("/{id}/documentos")
     @ResponseStatus(HttpStatus.OK)
     @PreAuthorize("hasAuthority('MOD_CLIENTE_OPE_CONSULTAR')")
-    public Page<DocumentoHistoricoDTO> listDocumentos(Pageable pageable, @PathVariable UUID id) throws NaoEncontradoException {
-        return clienteService.listDocumentos(pageable, id);
+    public Page<DocumentoHistoricoDTO> listDocumentos(Pageable pageable, @PathVariable UUID id, @RequestParam(defaultValue = "IDENTIDADE") TipoDocumentoCliente tipo) throws NaoEncontradoException {
+        return clienteService.listDocumentos(pageable, id, tipo);
     }
 
     @GetMapping("/{id}/documentos/{idDocumento}")
@@ -79,8 +80,9 @@ public class ClienteController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('MOD_CLIENTE_OPE_CADASTRAR')")
     public ClienteResponseDTO create(@RequestPart("cliente") ClienteCreateDTO cliente,
-                                     @RequestPart(value = "documento", required = false) MultipartFile documento) throws NaoEncontradoException {
-        return clienteService.create(cliente, documento);
+                                     @RequestPart(value = "documento", required = false) MultipartFile documento,
+                                     @RequestPart(value = "comprovanteResidencia", required = false) MultipartFile comprovanteResidencia) throws NaoEncontradoException {
+        return clienteService.create(cliente, documento, comprovanteResidencia);
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -88,8 +90,9 @@ public class ClienteController {
     @PreAuthorize("hasAuthority('MOD_CLIENTE_OPE_ATUALIZAR')")
     public ClienteResponseDTO update(@RequestPart("cliente") ClienteCreateDTO cliente,
                                      @RequestPart(value = "documento", required = false) MultipartFile documento,
+                                     @RequestPart(value = "comprovanteResidencia", required = false) MultipartFile comprovanteResidencia,
                                      @PathVariable UUID id) {
-        return clienteService.update(cliente, documento, id);
+        return clienteService.update(cliente, documento, comprovanteResidencia, id);
     }
 
     @DeleteMapping("/{id}")
