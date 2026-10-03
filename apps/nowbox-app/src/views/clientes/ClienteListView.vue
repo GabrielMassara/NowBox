@@ -9,7 +9,7 @@ import { ApiError } from '../../lib/http'
 import { mascaraCpf, mascaraTelefone } from '../../lib/mascaras'
 import { clienteService } from '../../services/cliente.service'
 import { estadoService } from '../../services/estado.service'
-import type { ClienteResponseDTO, EstadoEntity } from '../../types/api'
+import type { ClienteResponseDTO, EstadoEntity, TipoDocumentoCliente } from '../../types/api'
 
 const TAMANHO_PAGINA = 10
 
@@ -21,6 +21,7 @@ const carregando = ref(false)
 const erro = ref('')
 const excluindoId = ref('')
 const documentoCliente = ref<ClienteResponseDTO | null>(null)
+const tipoDocumento = ref<TipoDocumentoCliente>('IDENTIDADE')
 const historicoCliente = ref<ClienteResponseDTO | null>(null)
 
 const pagina = ref(0)
@@ -82,7 +83,8 @@ function novoCliente() {
   router.push('/clientes/novo')
 }
 
-function visualizarDocumento(cliente: ClienteResponseDTO) {
+function visualizarDocumento(cliente: ClienteResponseDTO, tipo: TipoDocumentoCliente) {
+  tipoDocumento.value = tipo
   documentoCliente.value = cliente
 }
 
@@ -204,11 +206,20 @@ onMounted(() => {
                 <button
                   type="button"
                   class="clientes__acao-btn"
-                  aria-label="Visualizar documento"
-                  title="Visualizar documento"
-                  @click="visualizarDocumento(cliente)"
+                  aria-label="Visualizar documento de identidade"
+                  title="Visualizar documento de identidade"
+                  @click="visualizarDocumento(cliente, 'IDENTIDADE')"
                 >
                   <AppIcon name="eye" :size="16" />
+                </button>
+                <button
+                  type="button"
+                  class="clientes__acao-btn"
+                  aria-label="Visualizar comprovante de residência"
+                  title="Visualizar comprovante de residência"
+                  @click="visualizarDocumento(cliente, 'COMPROVANTE_RESIDENCIA')"
+                >
+                  <AppIcon name="map-pin" :size="16" />
                 </button>
                 <button
                   type="button"
@@ -280,7 +291,8 @@ onMounted(() => {
     <DocumentoModal
       v-if="documentoCliente"
       :id-cliente="documentoCliente.id"
-      :titulo="`Documento de ${documentoCliente.nome}`"
+      :tipo="tipoDocumento"
+      :titulo="`${tipoDocumento === 'IDENTIDADE' ? 'Documento' : 'Comprovante de residência'} de ${documentoCliente.nome}`"
       @fechar="documentoCliente = null"
     />
 

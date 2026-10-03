@@ -8,7 +8,7 @@ import { ApiError } from '../../lib/http'
 import { mascaraCep, mascaraCpf, mascaraRg, mascaraTelefone, semMascaraRg } from '../../lib/mascaras'
 import { clienteService } from '../../services/cliente.service'
 import { estadoService } from '../../services/estado.service'
-import type { DocumentoIdentidadeDTO, EstadoEntity } from '../../types/api'
+import type { DocumentoClienteDTO, EstadoEntity } from '../../types/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -42,9 +42,14 @@ const senhaTemporariaStatus = ref(false)
 const TIPOS_DOCUMENTO = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
 const TAMANHO_MAXIMO_DOCUMENTO = 10 * 1024 * 1024
 const documento = ref<File | null>(null)
-const documentoAtual = ref<DocumentoIdentidadeDTO | null>(null)
+const documentoAtual = ref<DocumentoClienteDTO | null>(null)
 const erroDocumento = ref('')
 const documentoAtualBlob = ref<Blob | null>(null)
+
+const comprovante = ref<File | null>(null)
+const comprovanteAtual = ref<DocumentoClienteDTO | null>(null)
+const erroComprovante = ref('')
+const comprovanteAtualBlob = ref<Blob | null>(null)
 
 const carregando = ref(false)
 const salvando = ref(false)
@@ -54,33 +59,48 @@ function somenteDigitos(valor: string) {
   return valor.replace(/\D/g, '')
 }
 
-function onDocumentoSelecionado(event: Event) {
-  const input = event.target as HTMLInputElement
+// Valida o arquivo escolhido e devolve o arquivo ou a mensagem de erro
+function validarArquivo(input: HTMLInputElement): { arquivo: File | null; erro: string } {
   const arquivo = input.files?.[0] ?? null
-  erroDocumento.value = ''
-  documento.value = null
-
-  if (!arquivo) return
+  if (!arquivo) return { arquivo: null, erro: '' }
 
   if (!TIPOS_DOCUMENTO.includes(arquivo.type)) {
-    erroDocumento.value = 'Envie uma imagem (JPG, PNG ou WEBP) ou um PDF.'
     input.value = ''
-    return
+    return { arquivo: null, erro: 'Envie uma imagem (JPG, PNG ou WEBP) ou um PDF.' }
   }
   if (arquivo.size > TAMANHO_MAXIMO_DOCUMENTO) {
-    erroDocumento.value = 'O documento deve ter no máximo 10 MB.'
     input.value = ''
-    return
+    return { arquivo: null, erro: 'O arquivo deve ter no máximo 10 MB.' }
   }
 
-  documento.value = arquivo
+  return { arquivo, erro: '' }
+}
+
+function onDocumentoSelecionado(event: Event) {
+  const resultado = validarArquivo(event.target as HTMLInputElement)
+  documento.value = resultado.arquivo
+  erroDocumento.value = resultado.erro
+}
+
+function onComprovanteSelecionado(event: Event) {
+  const resultado = validarArquivo(event.target as HTMLInputElement)
+  comprovante.value = resultado.arquivo
+  erroComprovante.value = resultado.erro
 }
 
 async function carregarDocumentoAtual(id: string) {
   try {
-    documentoAtualBlob.value = (await clienteService.obterDocumento(id)).blob
+    documentoAtualBlob.value = (await clienteService.obterDocumento(id, 'IDENTIDADE')).blob
   } catch (e) {
     erroDocumento.value = e instanceof ApiError ? e.message : 'Não foi possível carregar o documento atual.'
+  }
+}
+
+async function carregarComprovanteAtual(id: string) {
+  try {
+    comprovanteAtualBlob.value = (await clienteService.obterDocumento(id, 'COMPROVANTE_RESIDENCIA')).blob
+  } catch (e) {
+    erroComprovante.value = e instanceof ApiError ? e.message : 'Não foi possível carregar o comprovante atual.'
   }
 }
 
@@ -118,6 +138,8 @@ async function carregarCliente(id: string) {
     senhaTemporariaStatus.value = cliente.senhaTemporariaStatus ?? false
     documentoAtual.value = cliente.documentoIdentidade ?? null
     if (documentoAtual.value) carregarDocumentoAtual(id)
+    comprovanteAtual.value = cliente.comprovanteResidencia ?? null
+    if (comprovanteAtual.value) carregarComprovanteAtual(id)
   } catch (e) {
     erro.value = e instanceof ApiError ? e.message : 'Não foi possível carregar o cliente.'
   } finally {
@@ -139,6 +161,10 @@ async function onSubmit() {
 
   if (!documento.value && !documentoAtual.value) {
     erroDocumento.value = 'Envie o documento de identidade.'
+    return
+  }
+  if (!comprovante.value && !comprovanteAtual.value) {
+    erroComprovante.value = 'Envie o comprovante de residência.'
     return
   }
 
@@ -168,9 +194,9 @@ async function onSubmit() {
 
   try {
     if (idCliente.value) {
-      await clienteService.atualizar(idCliente.value, dados, documento.value)
+      await clienteService.atualizar(idCliente.value, dados, documento.value, comprovante.value)
     } else {
-      await clienteService.criar(dados, documento.value!)
+      await clienteService.criar(dados, documento.value!, comprovante.value!)
     }
     voltar()
   } catch (e) {
@@ -428,6 +454,29 @@ async function onSubmit() {
             <DocumentoPreview
               :arquivo="documento ?? documentoAtualBlob"
               :nome="documento?.name ?? documentoAtual?.nomeArquivo"
+            />
+          </div>
+
+          <div class="cliente-manter__campo cliente-manter__campo--cheio">
+            <label for="cliente-comprovante">Comprovante de residência</label>
+            <input
+              id="cliente-comprovante"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              :required="!comprovanteAtual"
+              :disabled="salvando"
+              @change="onComprovanteSelecionado"
+            />
+            <span class="cliente-manter__ajuda">Imagem (JPG, PNG ou WEBP) ou PDF, até 10 MB.</span>
+            <span v-if="comprovanteAtual && !comprovante" class="cliente-manter__ajuda cliente-manter__documento-atual">
+              <AppIcon name="file-text" :size="14" />
+              Comprovante atual: {{ comprovanteAtual.nomeArquivo }} · Selecione outro arquivo para substituí-lo.
+            </span>
+            <span v-if="erroComprovante" class="cliente-manter__erro-campo">{{ erroComprovante }}</span>
+
+            <DocumentoPreview
+              :arquivo="comprovante ?? comprovanteAtualBlob"
+              :nome="comprovante?.name ?? comprovanteAtual?.nomeArquivo"
             />
           </div>
 
