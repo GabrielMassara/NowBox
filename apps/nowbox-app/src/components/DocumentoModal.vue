@@ -4,8 +4,9 @@ import AppIcon from './AppIcon.vue'
 import DocumentoPreview from './DocumentoPreview.vue'
 import { ApiError } from '../lib/http'
 import { clienteService } from '../services/cliente.service'
+import type { TipoDocumentoCliente } from '../types/api'
 
-const props = defineProps<{ idCliente: string; titulo: string }>()
+const props = defineProps<{ idCliente: string; titulo: string; tipo?: TipoDocumentoCliente }>()
 const emit = defineEmits<{ fechar: [] }>()
 
 const arquivo = ref<Blob | null>(null)
@@ -18,7 +19,7 @@ async function carregar() {
   erro.value = ''
 
   try {
-    const documento = await clienteService.obterDocumento(props.idCliente)
+    const documento = await clienteService.obterDocumento(props.idCliente, props.tipo ?? 'IDENTIDADE')
     arquivo.value = documento.blob
     nomeArquivo.value = documento.nomeArquivo
   } catch (e) {

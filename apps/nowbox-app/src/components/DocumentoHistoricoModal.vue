@@ -1,15 +1,23 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppIcon from './AppIcon.vue'
 import DocumentoPreview from './DocumentoPreview.vue'
 import { ApiError } from '../lib/http'
 import { clienteService } from '../services/cliente.service'
-import type { DocumentoHistoricoDTO } from '../types/api'
+import type { DocumentoHistoricoDTO, TipoDocumentoCliente } from '../types/api'
 
 const TAMANHO_PAGINA = 8
 
-const props = defineProps<{ idCliente: string; titulo: string }>()
+const props = defineProps<{ idCliente: string; titulo: string; tipo?: TipoDocumentoCliente }>()
 const emit = defineEmits<{ fechar: [] }>()
+
+const TIPOS: { valor: TipoDocumentoCliente; rotulo: string; vazio: string }[] = [
+  { valor: 'IDENTIDADE', rotulo: 'Identidade', vazio: 'Nenhum documento de identidade enviado ainda.' },
+  { valor: 'COMPROVANTE_RESIDENCIA', rotulo: 'Comprovante de residência', vazio: 'Nenhum comprovante de residência enviado ainda.' },
+]
+
+const tipoSelecionado = ref<TipoDocumentoCliente>(props.tipo ?? 'IDENTIDADE')
+const mensagemVazio = computed(() => TIPOS.find((t) => t.valor === tipoSelecionado.value)!.vazio)
 
 const documentos = ref<DocumentoHistoricoDTO[]>([])
 const carregando = ref(true)
@@ -39,7 +47,7 @@ async function carregar() {
   erro.value = ''
 
   try {
-    const resultado = await clienteService.listarDocumentos(props.idCliente, pagina.value, TAMANHO_PAGINA)
+    const resultado = await clienteService.listarDocumentos(props.idCliente, pagina.value, TAMANHO_PAGINA, tipoSelecionado.value)
     documentos.value = resultado.content
     totalPaginas.value = resultado.totalPages
     totalElementos.value = resultado.totalElements
@@ -48,6 +56,13 @@ async function carregar() {
   } finally {
     carregando.value = false
   }
+}
+
+function selecionarTipo(tipo: TipoDocumentoCliente) {
+  if (tipo === tipoSelecionado.value) return
+  tipoSelecionado.value = tipo
+  pagina.value = 0
+  carregar()
 }
 
 function irParaPagina(novaPagina: number) {
@@ -116,6 +131,21 @@ onBeforeUnmount(() => window.removeEventListener('keydown', aoPressionarTecla))
         </button>
       </header>
 
+      <div v-if="!visualizando" class="historico__abas" role="tablist">
+        <button
+          v-for="t in TIPOS"
+          :key="t.valor"
+          type="button"
+          role="tab"
+          class="historico__aba"
+          :class="{ 'historico__aba--ativa': t.valor === tipoSelecionado }"
+          :aria-selected="t.valor === tipoSelecionado"
+          @click="selecionarTipo(t.valor)"
+        >
+          {{ t.rotulo }}
+        </button>
+      </div>
+
       <div v-if="visualizando" class="historico__corpo">
         <DocumentoPreview :arquivo="arquivo" :nome="visualizando.nomeArquivo" />
         <p class="historico__nome">{{ visualizando.nomeArquivo }} · {{ formatarDataHora(visualizando.salvoEm) }}</p>
@@ -134,7 +164,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', aoPressionarTecla))
 
       <div v-else-if="documentos.length === 0" class="historico__estado">
         <AppIcon name="file-text" :size="20" />
-        <span>Nenhum documento de identidade enviado ainda.</span>
+        <span>{{ mensagemVazio }}</span>
       </div>
 
       <template v-else>
@@ -274,6 +304,33 @@ onBeforeUnmount(() => window.removeEventListener('keydown', aoPressionarTecla))
 
 .historico__fechar:hover {
   color: var(--text-primary);
+}
+
+.historico__abas {
+  display: flex;
+  gap: 4px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.historico__aba {
+  padding: 10px 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.historico__aba:hover {
+  color: var(--text-primary);
+}
+
+.historico__aba--ativa {
+  color: var(--text-primary);
+  border-bottom-color: var(--brand-500);
 }
 
 .historico__corpo {

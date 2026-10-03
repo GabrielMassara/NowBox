@@ -31,7 +31,9 @@ export interface EstadoEntity {
   uf: string
 }
 
-export interface DocumentoIdentidadeDTO {
+export type TipoDocumentoCliente = 'IDENTIDADE' | 'COMPROVANTE_RESIDENCIA'
+
+export interface DocumentoClienteDTO {
   id: string
   nomeArquivo: string
   contentType: string
@@ -65,7 +67,8 @@ export interface ClienteResponseDTO {
   cep: string
   cidade: string
   enderecoCorrespondencia?: boolean
-  documentoIdentidade?: DocumentoIdentidadeDTO
+  documentoIdentidade?: DocumentoClienteDTO
+  comprovanteResidencia?: DocumentoClienteDTO
   senhaTemporariaStatus?: boolean
   createdAt?: string
   deletedAt?: string

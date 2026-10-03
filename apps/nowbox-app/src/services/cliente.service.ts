@@ -1,6 +1,6 @@
 import { salvarArquivo } from '../lib/arquivo'
 import { http } from '../lib/http'
-import type { ClienteCreateDTO, ClienteResponseDTO, DocumentoHistoricoDTO, PageResponse } from '../types/api'
+import type { ClienteCreateDTO, ClienteResponseDTO, DocumentoHistoricoDTO, PageResponse, TipoDocumentoCliente } from '../types/api'
 
 export interface ClienteFiltro {
   idEstado?: string
@@ -9,10 +9,11 @@ export interface ClienteFiltro {
   email?: string
 }
 
-function montarFormulario(dados: ClienteCreateDTO, documento?: File | null) {
+function montarFormulario(dados: ClienteCreateDTO, documento?: File | null, comprovanteResidencia?: File | null) {
   const form = new FormData()
   form.append('cliente', new Blob([JSON.stringify(dados)], { type: 'application/json' }))
   if (documento) form.append('documento', documento)
+  if (comprovanteResidencia) form.append('comprovanteResidencia', comprovanteResidencia)
   return form
 }
 
@@ -31,20 +32,20 @@ export const clienteService = {
     return http.get<ClienteResponseDTO>(`/v1/cliente/${id}`)
   },
 
-  criar(dados: ClienteCreateDTO, documento: File) {
-    return http.postForm<ClienteResponseDTO>('/v1/cliente', montarFormulario(dados, documento))
+  criar(dados: ClienteCreateDTO, documento: File, comprovanteResidencia: File) {
+    return http.postForm<ClienteResponseDTO>('/v1/cliente', montarFormulario(dados, documento, comprovanteResidencia))
   },
 
-  atualizar(id: string, dados: ClienteCreateDTO, documento?: File | null) {
-    return http.putForm<ClienteResponseDTO>(`/v1/cliente/${id}`, montarFormulario(dados, documento))
+  atualizar(id: string, dados: ClienteCreateDTO, documento?: File | null, comprovanteResidencia?: File | null) {
+    return http.putForm<ClienteResponseDTO>(`/v1/cliente/${id}`, montarFormulario(dados, documento, comprovanteResidencia))
   },
 
-  obterDocumento(id: string) {
-    return http.download(`/v1/cliente/${id}/documento`)
+  obterDocumento(id: string, tipo: TipoDocumentoCliente = 'IDENTIDADE') {
+    return http.download(`/v1/cliente/${id}/documento?tipo=${tipo}`)
   },
 
-  listarDocumentos(id: string, pagina: number, tamanho: number) {
-    const params = new URLSearchParams({ page: String(pagina), size: String(tamanho) })
+  listarDocumentos(id: string, pagina: number, tamanho: number, tipo: TipoDocumentoCliente = 'IDENTIDADE') {
+    const params = new URLSearchParams({ page: String(pagina), size: String(tamanho), tipo })
     return http.get<PageResponse<DocumentoHistoricoDTO>>(`/v1/cliente/${id}/documentos?${params}`)
   },
 
