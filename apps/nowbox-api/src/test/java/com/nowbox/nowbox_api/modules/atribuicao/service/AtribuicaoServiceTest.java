@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -75,6 +76,29 @@ class AtribuicaoServiceTest {
 
         // verifica se ao chamar a findAllByFilter ele passou os mesmos parametros
         verify(atribuicaoRepository).findAllByFilter(idUsuario, idCargo, null);
+    }
+
+    @Test
+    @DisplayName("Should list all atribuicoes of the usuario without pagination")
+    void listByUsuario() {
+        // id do usuario e entidades do mock
+        UUID idUsuario = UUID.randomUUID();
+        UsuarioEntity usuario = UsuarioEntity.builder().id(idUsuario).nome("Usuario").build();
+        CargoEntity cargo = CargoEntity.builder().nome("Cargo").build();
+        AtribuicaoEntity entidade = AtribuicaoEntity.builder().usuario(usuario).cargo(cargo).build();
+
+        // Quando chamar findAllByFilter filtrando apenas pelo usuario ele retorna o mock
+        when(atribuicaoRepository.findAllByFilter(idUsuario, null, Pageable.unpaged())).thenReturn(new PageImpl<>(List.of(entidade)));
+
+        // chama a funcao listByUsuario
+        List<AtribuicaoResponseDTO> result = atribuicaoService.listByUsuario(idUsuario);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().getUsuario()).isEqualTo(usuario);
+        assertThat(result.getFirst().getCargo()).isEqualTo(cargo);
+
+        // verifica se filtrou somente pelo usuario e sem paginacao
+        verify(atribuicaoRepository).findAllByFilter(idUsuario, null, Pageable.unpaged());
     }
 
     @Test

@@ -5,13 +5,16 @@ import com.nowbox.nowbox_api.modules.atribuicao.dto.AtribuicaoCreateDTO;
 import com.nowbox.nowbox_api.modules.atribuicao.dto.AtribuicaoFilterDTO;
 import com.nowbox.nowbox_api.modules.atribuicao.dto.AtribuicaoResponseDTO;
 import com.nowbox.nowbox_api.modules.atribuicao.service.AtribuicaoService;
+import com.nowbox.nowbox_api.security.UsuarioAutenticado;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -26,6 +29,12 @@ public class AtribuicaoController {
     @PreAuthorize("hasAuthority('MOD_ATRIBUICAO_OPE_CONSULTAR')")
     public Page<AtribuicaoResponseDTO> listAll(Pageable pageable, @ModelAttribute AtribuicaoFilterDTO filtro) {
         return atribuicaoService.listAllByFilter(pageable, filtro);
+    }
+
+    @GetMapping("/me")
+    @ResponseStatus(HttpStatus.OK)
+    public List<AtribuicaoResponseDTO> listMine(@AuthenticationPrincipal UsuarioAutenticado usuario) {
+        return atribuicaoService.listByUsuario(usuario.getId());
     }
 
     @GetMapping("/{id}")

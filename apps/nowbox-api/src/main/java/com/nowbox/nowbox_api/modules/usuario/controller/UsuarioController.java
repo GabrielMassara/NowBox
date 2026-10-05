@@ -4,11 +4,13 @@ import com.nowbox.nowbox_api.modules.usuario.dto.UsuarioCreateDTO;
 import com.nowbox.nowbox_api.modules.usuario.dto.UsuarioFilterDTO;
 import com.nowbox.nowbox_api.modules.usuario.dto.UsuarioResponseDTO;
 import com.nowbox.nowbox_api.modules.usuario.service.UsuarioService;
+import com.nowbox.nowbox_api.security.UsuarioAutenticado;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -25,6 +27,12 @@ public class UsuarioController {
     @PreAuthorize("hasAuthority('MOD_USUARIO_OPE_CONSULTAR')")
     public Page<UsuarioResponseDTO> listAll(Pageable pageable, @ModelAttribute UsuarioFilterDTO filtro) {
         return usuarioService.listAllByFilter(pageable, filtro);
+    }
+
+    @GetMapping("/me")
+    @ResponseStatus(HttpStatus.OK)
+    public UsuarioResponseDTO findMe(@AuthenticationPrincipal UsuarioAutenticado usuario) {
+        return usuarioService.find(Pageable.unpaged(), usuario.getId());
     }
 
     @GetMapping("/{id}")

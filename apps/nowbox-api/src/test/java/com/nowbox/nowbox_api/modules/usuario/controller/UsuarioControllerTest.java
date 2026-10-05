@@ -5,6 +5,7 @@ import com.nowbox.nowbox_api.common.exception.NaoEncontradoException;
 import com.nowbox.nowbox_api.modules.usuario.dto.UsuarioCreateDTO;
 import com.nowbox.nowbox_api.modules.usuario.dto.UsuarioResponseDTO;
 import com.nowbox.nowbox_api.modules.usuario.service.UsuarioService;
+import com.nowbox.nowbox_api.security.UsuarioAutenticado;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,10 +14,13 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -58,6 +62,31 @@ class UsuarioControllerTest {
 
         // verifica se o service foi chamado
         verify(usuarioService).listAllByFilter(any(), any());
+    }
+
+    @Test
+    @DisplayName("Should return the authenticated usuario with status 200")
+    void findMe() throws Exception {
+        // usuario autenticado sem permissoes
+        UUID id = UUID.randomUUID();
+        UsuarioAutenticado principal = new UsuarioAutenticado(id, Set.of(), Set.of());
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+
+        // Mock para simular resposta do Service
+        UsuarioResponseDTO dto = UsuarioResponseDTO.builder().id(id).nome("Usuario Test").email("usuario@test.com").build();
+        when(usuarioService.find(any(), eq(id))).thenReturn(dto);
+
+        // chama o endpoint GET /v1/usuario/me
+        mockMvc.perform(get("/v1/usuario/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id.toString()))
+                .andExpect(jsonPath("$.nome").value("Usuario Test"));
+
+        // verifica se o service foi chamado com o id do usuario autenticado
+        verify(usuarioService).find(any(), eq(id));
+
+        // limpa o contexto de seguranca
+        SecurityContextHolder.clearContext();
     }
 
     @Test

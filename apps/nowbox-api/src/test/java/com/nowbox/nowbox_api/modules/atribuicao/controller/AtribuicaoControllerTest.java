@@ -7,6 +7,7 @@ import com.nowbox.nowbox_api.modules.atribuicao.dto.AtribuicaoResponseDTO;
 import com.nowbox.nowbox_api.modules.atribuicao.service.AtribuicaoService;
 import com.nowbox.nowbox_api.modules.cargo.entity.CargoEntity;
 import com.nowbox.nowbox_api.modules.usuario.entity.UsuarioEntity;
+import com.nowbox.nowbox_api.security.UsuarioAutenticado;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,10 +16,13 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -62,6 +66,33 @@ class AtribuicaoControllerTest {
 
         // verifica se o service foi chamado
         verify(atribuicaoService).listAllByFilter(any(), any());
+    }
+
+    @Test
+    @DisplayName("Should list only the atribuicoes of the authenticated usuario with status 200")
+    void listMine() throws Exception {
+        // usuario autenticado sem permissoes
+        UUID idUsuario = UUID.randomUUID();
+        UsuarioAutenticado principal = new UsuarioAutenticado(idUsuario, Set.of(), Set.of());
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+
+        // Mock para simular resposta do Service
+        UsuarioEntity usuario = UsuarioEntity.builder().id(idUsuario).nome("Usuario").build();
+        CargoEntity cargo = CargoEntity.builder().id(UUID.randomUUID()).nome("Cargo").build();
+        AtribuicaoResponseDTO dto = AtribuicaoResponseDTO.builder().id(UUID.randomUUID()).usuario(usuario).cargo(cargo).build();
+        when(atribuicaoService.listByUsuario(idUsuario)).thenReturn(List.of(dto));
+
+        // chama o endpoint GET /v1/atribuicao/me
+        mockMvc.perform(get("/v1/atribuicao/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].usuario.nome").value("Usuario"))
+                .andExpect(jsonPath("$[0].cargo.nome").value("Cargo"));
+
+        // verifica se o service foi chamado com o id do usuario autenticado
+        verify(atribuicaoService).listByUsuario(idUsuario);
+
+        // limpa o contexto de seguranca
+        SecurityContextHolder.clearContext();
     }
 
     @Test
