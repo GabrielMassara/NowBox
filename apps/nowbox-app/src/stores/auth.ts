@@ -23,7 +23,7 @@ const nomeExibicao = computed(() => state.usuario?.nome || state.emailLogin || '
 function carregarUsuario() {
   if (!usuarioId.value) return
   authService
-    .buscarUsuario(usuarioId.value)
+    .buscarUsuarioLogado()
     .then((usuario) => (state.usuario = usuario))
     .catch(() => {})
 }
