@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -45,6 +46,12 @@ public class AtribuicaoService {
         }
 
         return atribuicaoRepository.findAllByFilter(idUsuario, idCargo, pageable).map(this::toResponseDTO);
+    }
+
+    public List<AtribuicaoResponseDTO> listByUsuario(UUID idUsuario) {
+        return atribuicaoRepository.findAllByFilter(idUsuario, null, Pageable.unpaged())
+                .map(this::toResponseDTO)
+                .getContent();
     }
 
     public AtribuicaoResponseDTO find(Pageable page, UUID id) throws NaoEncontradoException {
