@@ -47,17 +47,11 @@ export const unidadeService = {
     return http.delete<void>(`/v1/unidade/${id}`)
   },
 
-  async listarMinhasUnidades(idUsuario: string): Promise<MinhaUnidade[]> {
-    const params = new URLSearchParams({
-      page: '0',
-      size: '100',
-      idUsuario,
-    })
-
-    const pagina = await http.get<PageResponse<AtribuicaoResponseDTO>>(`/v1/atribuicao?${params}`)
+  async listarMinhasUnidades(): Promise<MinhaUnidade[]> {
+    const atribuicoes = await http.get<AtribuicaoResponseDTO[]>('/v1/atribuicao/me')
 
     const porUnidade = new Map<string, MinhaUnidade>()
-    for (const atribuicao of pagina.content) {
+    for (const atribuicao of atribuicoes) {
       const unidade = atribuicao.cargo.unidade
       if (!porUnidade.has(unidade.id)) {
         porUnidade.set(unidade.id, { unidade, cargo: atribuicao.cargo })

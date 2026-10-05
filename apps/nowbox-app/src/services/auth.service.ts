@@ -6,7 +6,7 @@ export const authService = {
     return http.post<LoginResponseDTO>('/v1/auth/login', credenciais)
   },
 
-  buscarUsuario(id: string) {
-    return http.get<UsuarioResponseDTO>(`/v1/usuario/${id}`)
+  buscarUsuarioLogado() {
+    return http.get<UsuarioResponseDTO>('/v1/usuario/me')
   },
 }

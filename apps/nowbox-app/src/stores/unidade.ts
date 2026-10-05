@@ -34,7 +34,7 @@ async function carregarMinhasUnidades() {
   state.erro = null
 
   try {
-    state.minhasUnidades = await unidadeService.listarMinhasUnidades(idUsuario)
+    state.minhasUnidades = await unidadeService.listarMinhasUnidades()
   } catch {
     state.erro = 'Não foi possível carregar as unidades vinculadas ao seu usuário.'
   } finally {
