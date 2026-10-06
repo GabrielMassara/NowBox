@@ -5,7 +5,8 @@ import AppIcon from '../AppIcon.vue'
 import { authStore } from '../../stores/auth'
 import { unidadeStore } from '../../stores/unidade'
 
-defineProps<{ title: string; subtitle?: string }>()
+// `destaque` é o trecho em negrito de uma saudação ("Bem-vindo, <nome>"), usado na dashboard
+defineProps<{ title: string; subtitle?: string; destaque?: string }>()
 defineEmits<{ 'abrir-menu': [] }>()
 
 const router = useRouter()
@@ -52,8 +53,8 @@ function sair() {
       <AppIcon name="menu" :size="20" />
     </button>
 
-    <div class="topbar__title">
-      <h1>{{ title }}</h1>
+    <div class="topbar__title" :class="{ 'topbar__title--saudacao': destaque }">
+      <h1>{{ title }} <strong v-if="destaque">{{ destaque }}</strong></h1>
       <p v-if="subtitle">{{ subtitle }}</p>
     </div>
 
@@ -130,6 +131,21 @@ function sair() {
   font-size: 12.5px;
   color: var(--text-muted);
   margin-top: 2px;
+}
+
+.topbar__title--saudacao h1 {
+  font-size: 22px;
+  font-weight: 300;
+  color: var(--text-secondary);
+}
+
+.topbar__title--saudacao h1 strong {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.topbar__title--saudacao p {
+  font-size: 13.5px;
 }
 
 .topbar__search {

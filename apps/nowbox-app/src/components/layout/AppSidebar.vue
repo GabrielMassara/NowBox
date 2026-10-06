@@ -48,12 +48,15 @@ const groups = computed<NavGroup[]>(() => [
   },
   ...menuStore.state.sessoes.map((sessao) => ({
     title: sessao.nome,
-    items: sessao.modulos.map((modulo) => ({
-      label: modulo.nome,
-      icon: iconesPorRota[modulo.rota] ?? iconePadrao,
-      to: rotasRegistradas.has(modulo.rota) ? modulo.rota : undefined,
-    })),
-  })),
+    items: sessao.modulos
+      .filter((modulo) => modulo.rota !== '/')
+      .map((modulo) => ({
+        label: modulo.nome,
+        icon: iconesPorRota[modulo.rota] ?? iconePadrao,
+        to: rotasRegistradas.has(modulo.rota) ? modulo.rota : undefined,
+      })),
+  }))
+  .filter((sessao) => sessao.items.length > 0),
 ])
 
 const CHAVE_SESSOES_FECHADAS = 'nowbox:sidebar:sessoes-fechadas'
