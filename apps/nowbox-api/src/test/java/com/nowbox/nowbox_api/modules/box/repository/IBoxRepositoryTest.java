@@ -217,6 +217,62 @@ class IBoxRepositoryTest {
         assertThat(result).containsExactly("102");
     }
 
+    @Test
+    @DisplayName("Should count the boxes of the unidade ignoring the soft deleted ones")
+    void countByUnidadeIdAndDeletedAtIsNullCase1() {
+        List<BoxEntity> boxes = this.createScenario();
+        BoxEntity box2 = boxes.get(1);
+        box2.setDeletedAt(LocalDateTime.now());
+        this.em.persist(box2);
+
+        long result = boxRepository.countByUnidadeIdAndDeletedAtIsNull(boxes.get(0).getUnidade().getId());
+
+        assertThat(result).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Should count only the boxes of the unidade with an aluguel in progress as ocupados")
+    void countOcupadosByUnidadeCase1() {
+        List<BoxEntity> boxes = this.createScenario();
+        this.createAlugueis(boxes.get(0), boxes.get(1));
+
+        long result = boxRepository.countOcupadosByUnidade(boxes.get(0).getUnidade().getId());
+
+        assertThat(result).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Should not count as ocupado the box of another unidade")
+    void countOcupadosByUnidadeCase2() {
+        List<BoxEntity> boxes = this.createScenario();
+        this.createAlugueis(boxes.get(0), boxes.get(1));
+
+        long result = boxRepository.countOcupadosByUnidade(boxes.get(2).getUnidade().getId());
+
+        assertThat(result).isZero();
+    }
+
+    @Test
+    @DisplayName("Should count as bloqueado only the blocked box without an aluguel in progress")
+    void countBloqueadosNaoOcupadosByUnidadeCase1() {
+        List<BoxEntity> boxes = this.createScenario();
+
+        long result = boxRepository.countBloqueadosNaoOcupadosByUnidade(boxes.get(0).getUnidade().getId());
+
+        assertThat(result).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Should not count as bloqueado a blocked box that is ocupado")
+    void countBloqueadosNaoOcupadosByUnidadeCase2() {
+        List<BoxEntity> boxes = this.createScenario();
+        this.createAlugueis(boxes.get(1), boxes.get(0));
+
+        long result = boxRepository.countBloqueadosNaoOcupadosByUnidade(boxes.get(0).getUnidade().getId());
+
+        assertThat(result).isZero();
+    }
+
     // Cadastra um aluguel ativo no primeiro box e um aluguel inativo no segundo
     private List<AluguelEntity> createAlugueis(BoxEntity boxAtivo, BoxEntity boxInativo) {
         ClienteEntity cliente = ClienteEntity.builder()

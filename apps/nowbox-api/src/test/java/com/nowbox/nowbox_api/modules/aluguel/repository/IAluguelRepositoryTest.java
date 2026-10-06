@@ -5,6 +5,8 @@ import com.nowbox.nowbox_api.modules.aluguel.entity.AluguelEntity;
 import com.nowbox.nowbox_api.modules.aluguel.entity.StatusAluguel;
 import com.nowbox.nowbox_api.modules.box.entity.BoxEntity;
 import com.nowbox.nowbox_api.modules.cliente.entity.ClienteEntity;
+import com.nowbox.nowbox_api.modules.dashboard.dto.DashboardAluguelStatusDTO;
+import com.nowbox.nowbox_api.modules.dashboard.dto.DashboardEvolucaoDTO;
 import com.nowbox.nowbox_api.modules.estado.entity.EstadoEntity;
 import com.nowbox.nowbox_api.modules.unidade.entity.UnidadeEntity;
 import jakarta.persistence.EntityManager;
@@ -13,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
@@ -23,6 +26,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 @DataJpaTest
 @ActiveProfiles("test")
@@ -223,6 +227,140 @@ class IAluguelRepositoryTest {
         boolean result = aluguelRepository.existsByBoxIdAndStatusNotAndDeletedAtIsNullAndIdNot(aluguel1.getBox().getId(), StatusAluguel.INATIVO, UUID.randomUUID());
 
         assertThat(result).isTrue();
+    }
+
+    @Test
+    @DisplayName("Should count the alugueis of the unidade with one of the informed status")
+    void countByBoxUnidadeIdAndStatusInAndDeletedAtIsNullCase1() {
+        List<AluguelEntity> alugueis = this.createScenario();
+        UUID idUnidade = alugueis.get(0).getBox().getUnidade().getId();
+
+        long result = aluguelRepository.countByBoxUnidadeIdAndStatusInAndDeletedAtIsNull(idUnidade, List.of(StatusAluguel.ATIVO));
+
+        assertThat(result).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Should sum the valor of the alugueis of the unidade with one of the informed status")
+    void sumValorVigenteByUnidadeCase1() {
+        List<AluguelEntity> alugueis = this.createScenario();
+        UUID idUnidade = alugueis.get(0).getBox().getUnidade().getId();
+
+        BigDecimal result = aluguelRepository.sumValorVigenteByUnidade(idUnidade, List.of(StatusAluguel.ATIVO));
+
+        assertThat(result).isEqualByComparingTo("330.00");
+    }
+
+    @Test
+    @DisplayName("Should sum the valor anterior while an aditivo is waiting for the signature")
+    void sumValorVigenteByUnidadeCase2() {
+        List<AluguelEntity> alugueis = this.createScenario();
+        AluguelEntity aluguel1 = alugueis.get(0);
+        aluguel1.setStatus(StatusAluguel.PENDENTE_ASSINATURA_ADITIVO);
+        aluguel1.setValor(BigDecimal.valueOf(300.00));
+        aluguel1.setValorAnterior(BigDecimal.valueOf(150.00));
+        this.em.persist(aluguel1);
+
+        BigDecimal result = aluguelRepository.sumValorVigenteByUnidade(aluguel1.getBox().getUnidade().getId(),
+                List.of(StatusAluguel.ATIVO, StatusAluguel.PENDENTE_ASSINATURA_ADITIVO));
+
+        assertThat(result).isEqualByComparingTo("330.00");
+    }
+
+    @Test
+    @DisplayName("Should return null when there is no aluguel to sum")
+    void sumValorVigenteByUnidadeCase3() {
+        BigDecimal result = aluguelRepository.sumValorVigenteByUnidade(UUID.randomUUID(), List.of(StatusAluguel.ATIVO));
+
+        assertThat(result).isNull();
+    }
+
+    @Test
+    @DisplayName("Should count the distinct clientes with one of the informed status")
+    void countClientesByUnidadeAndStatusInCase1() {
+        List<AluguelEntity> alugueis = this.createScenario();
+        UUID idUnidade = alugueis.get(0).getBox().getUnidade().getId();
+
+        long result = aluguelRepository.countClientesByUnidadeAndStatusIn(idUnidade, List.of(StatusAluguel.ATIVO));
+
+        assertThat(result).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Should group the alugueis of the unidade by status")
+    void countByUnidadeGroupByStatusCase1() {
+        List<AluguelEntity> alugueis = this.createScenario();
+        UUID idUnidade = alugueis.get(0).getBox().getUnidade().getId();
+
+        List<DashboardAluguelStatusDTO> result = aluguelRepository.countByUnidadeGroupByStatus(idUnidade);
+
+        assertThat(result).extracting(DashboardAluguelStatusDTO::getStatus, DashboardAluguelStatusDTO::getQuantidade)
+                .containsExactlyInAnyOrder(
+                        tuple(StatusAluguel.ATIVO, 2L),
+                        tuple(StatusAluguel.INATIVO, 1L));
+    }
+
+    @Test
+    @DisplayName("Should not group the soft deleted alugueis by status")
+    void countByUnidadeGroupByStatusCase2() {
+        List<AluguelEntity> alugueis = this.createScenario();
+        AluguelEntity aluguel3 = alugueis.get(2);
+        aluguel3.setDeletedAt(LocalDateTime.now());
+        this.em.persist(aluguel3);
+
+        List<DashboardAluguelStatusDTO> result = aluguelRepository.countByUnidadeGroupByStatus(aluguel3.getBox().getUnidade().getId());
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().getStatus()).isEqualTo(StatusAluguel.ATIVO);
+    }
+
+    @Test
+    @DisplayName("Should group the alugueis created since the informed date by month")
+    void countByUnidadeGroupByMesCase1() {
+        List<AluguelEntity> alugueis = this.createScenario();
+        UUID idUnidade = alugueis.get(0).getBox().getUnidade().getId();
+        LocalDateTime agora = LocalDateTime.now();
+
+        List<DashboardEvolucaoDTO> result = aluguelRepository.countByUnidadeGroupByMes(idUnidade, agora.minusDays(1));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().getAno()).isEqualTo(agora.getYear());
+        assertThat(result.getFirst().getMes()).isEqualTo(agora.getMonthValue());
+        assertThat(result.getFirst().getQuantidade()).isEqualTo(3);
+        assertThat(result.getFirst().getValor()).isEqualByComparingTo("530.00");
+    }
+
+    @Test
+    @DisplayName("Should not group the alugueis created before the informed date")
+    void countByUnidadeGroupByMesCase2() {
+        List<AluguelEntity> alugueis = this.createScenario();
+        UUID idUnidade = alugueis.get(0).getBox().getUnidade().getId();
+
+        List<DashboardEvolucaoDTO> result = aluguelRepository.countByUnidadeGroupByMes(idUnidade, LocalDateTime.now().plusDays(1));
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should list the alugueis of the unidade with one of the informed status limited by the page")
+    void findAllByUnidadeAndStatusInCase1() {
+        List<AluguelEntity> alugueis = this.createScenario();
+        UUID idUnidade = alugueis.get(0).getBox().getUnidade().getId();
+
+        List<AluguelEntity> result = aluguelRepository.findAllByUnidadeAndStatusIn(idUnidade, List.of(StatusAluguel.ATIVO), PageRequest.of(0, 1));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().getStatus()).isEqualTo(StatusAluguel.ATIVO);
+    }
+
+    @Test
+    @DisplayName("Should not list the alugueis of another unidade")
+    void findAllByUnidadeAndStatusInCase2() {
+        this.createScenario();
+
+        List<AluguelEntity> result = aluguelRepository.findAllByUnidadeAndStatusIn(UUID.randomUUID(), List.of(StatusAluguel.ATIVO), PageRequest.of(0, 10));
+
+        assertThat(result).isEmpty();
     }
 
     private List<AluguelEntity> createScenario() {

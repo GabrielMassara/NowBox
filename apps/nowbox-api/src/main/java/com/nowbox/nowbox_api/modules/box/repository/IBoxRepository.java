@@ -34,6 +34,25 @@ public interface IBoxRepository extends JpaRepository<BoxEntity, UUID> {
 
     Optional<BoxEntity> findByIdAndDeletedAtIsNull(UUID id);
 
+    long countByUnidadeIdAndDeletedAtIsNull(UUID idUnidade);
+
+    @Query("""
+            SELECT COUNT(b) FROM BoxEntity b
+            WHERE b.deletedAt IS NULL
+            AND b.unidade.id = :idUnidade
+            AND EXISTS (SELECT a.id FROM AluguelEntity a WHERE (a.box = b OR a.boxAnterior = b) AND a.status <> com.nowbox.nowbox_api.modules.aluguel.entity.StatusAluguel.INATIVO AND a.deletedAt IS NULL)
+            """)
+    long countOcupadosByUnidade(@Param("idUnidade") UUID idUnidade);
+
+    @Query("""
+            SELECT COUNT(b) FROM BoxEntity b
+            WHERE b.deletedAt IS NULL
+            AND b.unidade.id = :idUnidade
+            AND b.disponivel = FALSE
+            AND NOT EXISTS (SELECT a.id FROM AluguelEntity a WHERE (a.box = b OR a.boxAnterior = b) AND a.status <> com.nowbox.nowbox_api.modules.aluguel.entity.StatusAluguel.INATIVO AND a.deletedAt IS NULL)
+            """)
+    long countBloqueadosNaoOcupadosByUnidade(@Param("idUnidade") UUID idUnidade);
+
     @Query("""
             SELECT LOWER(b.numero) FROM BoxEntity b
             WHERE b.deletedAt IS NULL
