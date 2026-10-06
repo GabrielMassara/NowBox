@@ -312,3 +312,39 @@ export interface PagedResponse<T> {
   content: T[]
   page: PageMetadata
 }
+
+export interface DashboardResumoDTO {
+  totalBoxes: number
+  taxaOcupacao: number
+  alugueisVigentes: number
+  clientesAtivos: number
+  receitaMensal: number
+}
+
+export interface DashboardOcupacaoDTO {
+  total: number
+  ocupados: number
+  bloqueados: number
+  livres: number
+}
+
+export interface DashboardAluguelStatusDTO {
+  status: AluguelStatus
+  quantidade: number
+}
+
+export interface DashboardEvolucaoDTO {
+  ano: number
+  mes: number
+  quantidade: number
+  valor: number
+}
+
+export interface DashboardPendenciaDTO {
+  idAluguel: string
+  numeroBox: string
+  nomeCliente: string
+  status: AluguelStatus
+  valor: number
+  createdAt: string
+}

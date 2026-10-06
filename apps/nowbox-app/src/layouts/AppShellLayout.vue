@@ -3,8 +3,12 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppSidebar from '../components/layout/AppSidebar.vue'
 import AppTopbar from '../components/layout/AppTopbar.vue'
+import { authStore } from '../stores/auth'
 
 const route = useRoute()
+
+// Na dashboard o topo dá as boas-vindas em vez de repetir o nome da tela
+const naDashboard = computed(() => route.path === '/')
 
 const consultaEstreita = window.matchMedia('(max-width: 1080px)')
 const telaEstreita = ref(consultaEstreita.matches)
@@ -64,8 +68,9 @@ onBeforeUnmount(() => {
     ></div>
     <div class="app-shell__main">
       <AppTopbar
-        :title="route.meta.title ?? ''"
-        :subtitle="route.meta.subtitle"
+        :title="naDashboard ? 'Bem-vindo,' : (route.meta.title ?? '')"
+        :destaque="naDashboard ? authStore.nomeExibicao.value : undefined"
+        :subtitle="naDashboard ? 'Gerencie seus negócios' : route.meta.subtitle"
         @abrir-menu="menuMobileAberto = true"
       />
       <router-view />
